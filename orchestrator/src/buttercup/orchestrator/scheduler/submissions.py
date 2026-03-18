@@ -12,7 +12,6 @@ from redis import Redis
 
 from buttercup.common import node_local
 from buttercup.common.challenge_task import ChallengeTask
-from buttercup.common.logger import log_event
 from buttercup.common.clusterfuzz_parser.crash_comparer import CrashComparer
 from buttercup.common.constants import ARCHITECTURE
 from buttercup.common.datastructures.msg_pb2 import (
@@ -30,6 +29,7 @@ from buttercup.common.datastructures.msg_pb2 import (
     SubmissionResult,
     TracedCrash,
 )
+from buttercup.common.logger import log_event
 from buttercup.common.project_yaml import ProjectYaml
 from buttercup.common.queues import QueueFactory, QueueNames, ReliableQueue
 from buttercup.common.sarif_store import SARIFBroadcastDetail, SARIFStore
