@@ -220,7 +220,7 @@ def get_artifact(task_id: str, artifact_type: str, artifact_id: str) -> Any:
             return json.load(file_path.open("r", encoding="utf-8"))
         logger.error(f"Unknown artifact type: {artifact_type}")
         return None
-    except (OSError, json.JSONDecodeError, ValueError) as e:
+    except (OSError, json.JSONDecodeError, ValueError):
         logger.exception(f"Failed to get {artifact_type} artifact {artifact_id} for task {task_id}")
         return None
 

@@ -12,8 +12,6 @@ from typing import Any, Generic, Literal, TypeVar, cast, overload
 from google.protobuf.message import Message
 from redis import Redis, RedisError
 
-from buttercup.common.redis_pool import get_redis_client
-
 from buttercup.common.datastructures.msg_pb2 import (
     BuildOutput,
     BuildRequest,
@@ -29,6 +27,7 @@ from buttercup.common.datastructures.msg_pb2 import (
     TaskReady,
     TracedCrash,
 )
+from buttercup.common.redis_pool import get_redis_client
 
 # ruff: noqa: UP046
 

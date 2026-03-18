@@ -116,20 +116,22 @@ class RunnerProxy:
 
                 return json.loads(output_str)  # type: ignore[no-any-return]
             except json.JSONDecodeError as parse_error:
-                logger.error(f"Failed to parse JSON output for task {task_type}: {parse_error}")
-                logger.error(f"Raw output: {output_str}")
+                log_event(
+                    logger, logging.ERROR, "Failed to parse JSON output",
+                    operation=task_type, error=parse_error, raw_output=output_str,
+                )
                 return {
                     "status": "failed",
                     "error": f"Failed to parse JSON output: {parse_error}",
                 }
             except (UnicodeDecodeError, ValueError) as parse_error:
-                logger.error(f"Failed to parse subprocess output for task {task_type}: {parse_error}")
+                log_event(logger, logging.ERROR, "Failed to parse subprocess output", operation=task_type, error=parse_error)
                 return {
                     "status": "failed",
                     "error": f"Failed to parse output: {parse_error}",
                 }
         except (subprocess.SubprocessError, OSError) as e:
-            logger.error(f"Failed to start subprocess for task {task_type}: {e}")
+            log_event(logger, logging.ERROR, "Failed to start subprocess", operation=task_type, error=e)
             return {
                 "status": "failed",
                 "error": f"Failed to start subprocess: {e}",
@@ -158,7 +160,10 @@ class RunnerProxy:
 
             result = self._run_subprocess_task(cmd, runner_timeout, "fuzz")
         except (subprocess.SubprocessError, OSError) as e:
-            logger.exception(f"Fuzzer task {conf.engine} | {conf.sanitizer} | {conf.target_path} failed: {str(e)}")
+            log_event(
+                logger, logging.ERROR, "Fuzzer task failed",
+                engine=conf.engine, sanitizer=conf.sanitizer, target=conf.target_path, error=e,
+            )
             result = {
                 "status": "failed",
                 "error": str(e),
@@ -190,8 +195,9 @@ class RunnerProxy:
 
             self._run_subprocess_task(cmd, runner_timeout, "merge")
         except (subprocess.SubprocessError, OSError) as e:
-            logger.exception(
-                f"Merge corpus task {conf.engine} | {conf.sanitizer} | {conf.target_path} failed: {str(e)}"
+            log_event(
+                logger, logging.ERROR, "Merge corpus task failed",
+                engine=conf.engine, sanitizer=conf.sanitizer, target=conf.target_path, error=e,
             )
 
     def _dict_to_fuzz_result(self, result_dict: dict[str, Any]) -> FuzzResult:

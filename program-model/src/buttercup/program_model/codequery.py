@@ -886,7 +886,7 @@ class CodeQueryPersistent(CodeQuery):
                 try:
                     persistent_challenge.commit(".cqdb")
                     logger.debug(f"Uploading cqdb {persistent_challenge.local_task_dir} to remote storage")
-                except Exception as e:
+                except (OSError, ChallengeTaskError) as e:
                     logger.exception("Failed to commit the cqdb: %s", e)
                     raise e
 

@@ -1,4 +1,6 @@
-ARG BASE_IMAGE=gcr.io/oss-fuzz-base/base-runner
+# Pinned for reproducibility: oss-fuzz-base images only publish :latest tags;
+# consider pinning to a specific digest (docker pull ... @sha256:...) for full reproducibility.
+ARG BASE_IMAGE=gcr.io/oss-fuzz-base/base-runner:latest
 
 FROM $BASE_IMAGE AS base-image
 

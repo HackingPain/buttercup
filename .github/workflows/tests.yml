@@ -157,7 +157,7 @@ jobs:
       - name: Generate test summary
         if: always()
         run: |
-          echo "### Test Results: ${{ matrix.component }}" >> $GITHUB_STEP_SUMMARY
+          echo "### Test Results: ${{ matrix.component }} (Python ${{ matrix.python }})" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ -f ${{ matrix.component }}/test-results.xml ]; then
             python -c "

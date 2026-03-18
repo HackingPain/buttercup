@@ -100,7 +100,7 @@ def _find_source_files(
             return []
         logger.warning(f"Error running ripgrep command: {e}")
         return []
-    except Exception as e:
+    except (subprocess.SubprocessError, OSError) as e:
         logger.warning(f"Unexpected error finding harnesses: {e}")
         return []
 

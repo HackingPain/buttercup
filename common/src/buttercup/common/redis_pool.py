@@ -23,6 +23,7 @@ import os
 import threading
 
 from redis import ConnectionPool, Redis, RedisError
+from redis.backoff import ExponentialBackoff
 from redis.retry import Retry
 
 logger = logging.getLogger(__name__)
@@ -94,12 +95,20 @@ def get_redis_connection_pool(
         resolved_host = host if host is not None else _env_str("REDIS_HOST", "localhost")
         resolved_port = port if port is not None else _env_int("REDIS_PORT", 6379)
         resolved_db = db if db is not None else _env_int("REDIS_DB", 0)
-        resolved_max_connections = max_connections if max_connections is not None else _env_int("REDIS_MAX_CONNECTIONS", 10)
-        resolved_socket_timeout = socket_timeout if socket_timeout is not None else _env_float("REDIS_SOCKET_TIMEOUT", 5.0)
-        resolved_socket_connect_timeout = (
-            socket_connect_timeout if socket_connect_timeout is not None else _env_float("REDIS_SOCKET_CONNECT_TIMEOUT", 5.0)
+        resolved_max_connections = (
+            max_connections if max_connections is not None else _env_int("REDIS_MAX_CONNECTIONS", 10)
         )
-        resolved_retry_on_timeout = retry_on_timeout if retry_on_timeout is not None else _env_bool("REDIS_RETRY_ON_TIMEOUT", True)
+        resolved_socket_timeout = (
+            socket_timeout if socket_timeout is not None else _env_float("REDIS_SOCKET_TIMEOUT", 5.0)
+        )
+        resolved_socket_connect_timeout = (
+            socket_connect_timeout
+            if socket_connect_timeout is not None
+            else _env_float("REDIS_SOCKET_CONNECT_TIMEOUT", 5.0)
+        )
+        resolved_retry_on_timeout = (
+            retry_on_timeout if retry_on_timeout is not None else _env_bool("REDIS_RETRY_ON_TIMEOUT", True)
+        )
         resolved_health_check_interval = (
             health_check_interval if health_check_interval is not None else _env_int("REDIS_HEALTH_CHECK_INTERVAL", 30)
         )

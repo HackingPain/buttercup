@@ -1,9 +1,13 @@
+import asyncio
 import functools
 import logging
 import os
+import time
+from collections.abc import Callable
 from enum import Enum
-from typing import Any
+from typing import Any, ParamSpec, TypeVar, overload
 
+import openai
 import requests
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain_core.language_models import BaseChatModel
@@ -12,6 +16,129 @@ from langchain_openai.chat_models import ChatOpenAI
 from langfuse.callback import CallbackHandler
 
 logger = logging.getLogger(__name__)
+
+P = ParamSpec("P")
+T = TypeVar("T")
+
+# Transient OpenAI/LiteLLM error types that are safe to retry.
+_RETRYABLE_OPENAI_ERRORS: tuple[type[Exception], ...] = (
+    openai.RateLimitError,
+    openai.InternalServerError,
+    openai.APIConnectionError,
+    openai.APITimeoutError,
+)
+
+
+def _is_retryable(exc: Exception) -> bool:
+    """Return True if *exc* represents a transient LLM API failure."""
+    if isinstance(exc, _RETRYABLE_OPENAI_ERRORS):
+        return True
+    # openai.APIStatusError covers 502/503 via status_code
+    if isinstance(exc, openai.APIStatusError) and exc.status_code in (429, 500, 502, 503):
+        return True
+    # Connection-level errors surfaced by httpx / requests
+    if isinstance(exc, (ConnectionError, TimeoutError)):
+        return True
+    return False
+
+
+@overload
+def retry_llm(
+    fn: Callable[P, T],
+    *,
+    max_retries: int = ...,
+    base_delay: float = ...,
+    max_delay: float = ...,
+) -> Callable[P, T]: ...
+
+
+@overload
+def retry_llm(
+    fn: None = None,
+    *,
+    max_retries: int = ...,
+    base_delay: float = ...,
+    max_delay: float = ...,
+) -> Callable[[Callable[P, T]], Callable[P, T]]: ...
+
+
+def retry_llm(
+    fn: Callable[P, T] | None = None,
+    *,
+    max_retries: int = 3,
+    base_delay: float = 1.0,
+    max_delay: float = 60.0,
+) -> Callable[P, T] | Callable[[Callable[P, T]], Callable[P, T]]:
+    """Decorator that retries a function on transient LLM API errors.
+
+    Supports both sync and async callables.  Uses exponential back-off with
+    jitter (``min(base_delay * 2**attempt, max_delay)``).
+
+    Can be used with or without arguments::
+
+        @retry_llm
+        def call_llm(): ...
+
+        @retry_llm(max_retries=5, base_delay=2.0)
+        def call_llm(): ...
+    """
+
+    def decorator(func: Callable[P, T]) -> Callable[P, T]:
+        if asyncio.iscoroutinefunction(func):
+
+            @functools.wraps(func)
+            async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+                last_exc: Exception | None = None
+                for attempt in range(max_retries + 1):
+                    try:
+                        return await func(*args, **kwargs)  # type: ignore[misc]
+                    except Exception as exc:
+                        if not _is_retryable(exc) or attempt == max_retries:
+                            raise
+                        last_exc = exc
+                        delay = min(base_delay * (2**attempt), max_delay)
+                        logger.warning(
+                            "retry_llm: %s attempt %d/%d failed (%s), retrying in %.1fs",
+                            func.__qualname__,
+                            attempt + 1,
+                            max_retries,
+                            exc,
+                            delay,
+                        )
+                        await asyncio.sleep(delay)
+                # Unreachable, but keeps mypy happy.
+                raise last_exc  # type: ignore[misc]
+
+            return async_wrapper  # type: ignore[return-value]
+
+        @functools.wraps(func)
+        def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+            last_exc: Exception | None = None
+            for attempt in range(max_retries + 1):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as exc:
+                    if not _is_retryable(exc) or attempt == max_retries:
+                        raise
+                    last_exc = exc
+                    delay = min(base_delay * (2**attempt), max_delay)
+                    logger.warning(
+                        "retry_llm: %s attempt %d/%d failed (%s), retrying in %.1fs",
+                        func.__qualname__,
+                        attempt + 1,
+                        max_retries,
+                        exc,
+                        delay,
+                    )
+                    time.sleep(delay)
+            # Unreachable, but keeps mypy happy.
+            raise last_exc  # type: ignore[misc]
+
+        return sync_wrapper  # type: ignore[return-value]
+
+    if fn is not None:
+        return decorator(fn)
+    return decorator  # type: ignore[return-value]
 
 
 class ButtercupLLM(Enum):

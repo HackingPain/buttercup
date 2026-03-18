@@ -18,7 +18,7 @@ spec:
       {{- include "buttercup.waitForDocker" . | nindent 6 }}
       containers:
       - name: image-preloader
-        image: "docker:cli"
+        image: "docker:27.4.1-cli"  # Pinned for reproducibility
         resources:
           {{- toYaml .Values.resources | nindent 10 }}
         command:
