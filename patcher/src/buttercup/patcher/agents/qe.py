@@ -237,7 +237,7 @@ class QEAgent(PatcherAgentBase):
                     for built_dir in last_patch_attempt.built_challenges.values():
                         try:
                             ChallengeTask(read_only_task_dir=built_dir, local_task_dir=built_dir).cleanup()
-                        except Exception:
+                        except (OSError, ChallengeTaskError):
                             pass  # Ignore cleanup errors
 
                     last_patch_attempt.built_challenges = {}
@@ -249,7 +249,7 @@ class QEAgent(PatcherAgentBase):
                         },
                         goto=PatcherAgentName.REFLECTION.value,
                     )
-                except Exception as exc:
+                except Exception as exc:  # Broad catch intentional: concurrent future can raise any exception
                     logger.error("Build with sanitizer %s generated an exception: %s", sanitizer, exc)
                     last_patch_attempt.status = PatchStatus.BUILD_FAILED
                     last_patch_attempt.build_stderr = str(exc).encode()
@@ -262,7 +262,7 @@ class QEAgent(PatcherAgentBase):
                     for built_dir in last_patch_attempt.built_challenges.values():
                         try:
                             ChallengeTask(read_only_task_dir=built_dir, local_task_dir=built_dir).cleanup()
-                        except Exception:
+                        except (OSError, ChallengeTaskError):
                             pass  # Ignore cleanup errors
 
                     last_patch_attempt.built_challenges = {}
@@ -322,7 +322,7 @@ class QEAgent(PatcherAgentBase):
                             for crash in crashes_for_token[: configuration.max_pov_variants_per_token_sanitizer]
                         },
                     )
-            except Exception:
+            except OSError:
                 logger.exception("Failed to list PoV variants for token %s", pov.pov_token)
 
         # Remove original POVs from the result and move them to the beginning so they get tested first
@@ -458,7 +458,7 @@ class QEAgent(PatcherAgentBase):
                         if result.did_crash:
                             return _handle_failure(result.stdout, result.stderr)
 
-                except Exception as exc:
+                except Exception as exc:  # Broad catch intentional: concurrent future can raise any exception
                     logger.error("PoV execution generated an exception: %s", exc)
                     return _handle_failure(str(exc).encode(), None)
 

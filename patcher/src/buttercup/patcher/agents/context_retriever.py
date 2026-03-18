@@ -31,7 +31,7 @@ from langgraph.types import Command
 from pydantic import Field, ValidationError
 from redis import Redis
 
-from buttercup.common.challenge_task import ChallengeTask
+from buttercup.common.challenge_task import ChallengeTask, ChallengeTaskError
 from buttercup.common.llm import ButtercupLLM, create_default_llm
 from buttercup.common.stack_parsing import CrashInfo, parse_stacktrace
 from buttercup.patcher.agents.common import (
@@ -577,7 +577,7 @@ Remember to call the `test_instructions` tool to log and validate any test comma
                 "messages": [ToolMessage(message, tool_call_id=tool_call_id)],
             },
         )
-    except Exception as e:
+    except (ChallengeTaskError, OSError, ValueError) as e:
         logger.exception("Error running command: %s", command)
         raise e
     finally:
@@ -687,7 +687,7 @@ You CANNOT stop here, you MUST fix the test instructions and call this tool agai
             },
             goto=END,
         )
-    except Exception as e:
+    except (ChallengeTaskError, OSError, ValueError) as e:
         logger.exception("Error running test instructions: %s", instructions)
         raise e
     finally:
@@ -848,7 +848,7 @@ class ContextRetrieverAgent(PatcherAgentBase):
 
         try:
             dockerfile = challenge.dockerfile_path().read_text()
-        except Exception:
+        except OSError:
             dockerfile = "Dockerfile not found"
 
         return [
@@ -884,7 +884,7 @@ class ContextRetrieverAgent(PatcherAgentBase):
                 return match.group(1).strip().lower() == "true"
 
             return output.strip().lower() == "true"
-        except Exception:
+        except (ValueError, AttributeError):
             logger.error("Error parsing duplicate code snippet output: %s", output)
             return False
 
@@ -903,7 +903,7 @@ class ContextRetrieverAgent(PatcherAgentBase):
                 return match.group(1).strip().lower() == "true"
 
             return output.strip().lower() == "true"
-        except Exception:
+        except (ValueError, AttributeError):
             logger.error("Error parsing filter code snippets output: %s", output)
             return False
 
@@ -1040,7 +1040,7 @@ class ContextRetrieverAgent(PatcherAgentBase):
                     try:
                         new_snippets = future.result()
                         res.extend(new_snippets)
-                    except Exception as e:
+                    except Exception as e:  # Broad catch intentional: concurrent future can raise any exception
                         logger.exception("Error processing request: %s", e)
                         continue
 
@@ -1141,7 +1141,7 @@ class ContextRetrieverAgent(PatcherAgentBase):
                     request.request,
                 )
                 return self.process_request(challenge_task_dir, state.relevant_code_snippets, request, configuration)
-            except Exception:
+            except Exception:  # Broad catch intentional: code snippet retrieval can fail in many ways
                 logger.warning(
                     "[%s] Error processing request %s, continuing",
                     self.challenge.task_meta.task_id,
@@ -1169,7 +1169,7 @@ class ContextRetrieverAgent(PatcherAgentBase):
                     try:
                         new_snippets = future.result()
                         res.extend(new_snippets)
-                    except Exception as e:
+                    except Exception as e:  # Broad catch intentional: concurrent future can raise any exception
                         logger.exception("Error processing request: %s", e)
                         continue
 
@@ -1195,7 +1195,7 @@ class ContextRetrieverAgent(PatcherAgentBase):
                     try:
                         new_snippets = future.result()
                         res.extend(new_snippets)
-                    except Exception as e:
+                    except Exception as e:  # Broad catch intentional: concurrent future can raise any exception
                         logger.exception("Error processing request: %s", e)
                         continue
 
@@ -1304,7 +1304,7 @@ class ContextRetrieverAgent(PatcherAgentBase):
                         self.challenge.task_meta.task_id,
                         self.challenge.name,
                     )
-                except Exception as e:
+                except Exception as e:  # Broad catch intentional: LLM agent can fail in many ways
                     logger.exception("Error finding tests: %s", e)
 
                 return None
@@ -1356,7 +1356,7 @@ class ContextRetrieverAgent(PatcherAgentBase):
                 return Command(
                     goto=PatcherAgentName.ROOT_CAUSE_ANALYSIS.value,
                 )
-            except Exception as e:
+            except Exception as e:  # Broad catch intentional: LLM agent can fail in many ways
                 elapsed_time = time.time() - start_time
                 logger.exception(
                     "Unexpected error after %.2f seconds while finding tests for Challenge Task %s/%s: %s",

@@ -366,7 +366,7 @@ class RootCauseAgent(PatcherAgentBase):
                 },
                 goto=PatcherAgentName.REFLECTION.value,
             )
-        except Exception as e:
+        except Exception as e:  # Broad catch intentional: LLM API call + parsing can fail in many ways
             logger.exception("Error parsing root cause: %s", e)
             return Command(
                 update={

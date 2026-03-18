@@ -60,8 +60,8 @@ class FinalCorpus:
             try:
                 self._corpus.remove_local_file(file)
                 n += 1
-            except Exception as e:
-                # Ignore this as we will ge a new chance next time the merger runs
+            except OSError as e:
+                # Ignore this as we will get a new chance next time the merger runs
                 logger.error(f"Error removing file {file} from local corpus {self._corpus.path}: {e}")
         self._delete_locally.clear()
         return n
@@ -92,7 +92,7 @@ class PartitionedCorpus:
                 new_local_only_files.add(file)
                 if len(new_local_only_files) >= self.max_local_files:
                     break
-            except Exception as e:
+            except OSError as e:
                 logger.error(f"Error copying file {file} to local directory: {e}. Will be ignored in merge.")
 
         # These are the files that will be processed in the merge operation,
@@ -103,8 +103,8 @@ class PartitionedCorpus:
         for file in self.remote_files:
             try:
                 shutil.copy(os.path.join(self.corpus.path, file), os.path.join(self.remote_dir, file))
-            except Exception as e:
-                # Copy this from the remote storage instead (slow, but shouldn't dissappear from there)
+            except OSError as e:
+                # Copy this from the remote storage instead (slow, but shouldn't disappear from there)
                 shutil.copy(os.path.join(self.corpus.remote_path, file), os.path.join(self.remote_dir, file))
                 logger.debug(f"Error copying file {file} to remote directory: {e}. Copied from remote storage instead.")
 
@@ -325,7 +325,7 @@ class MergerBot:
                             partitioned_corpus.remote_files,
                             corp,
                         )
-                    except Exception as e:
+                    except (subprocess.SubprocessError, OSError) as e:
                         logger.error(f"Error during merge operation: {e}")
                         raise e
 

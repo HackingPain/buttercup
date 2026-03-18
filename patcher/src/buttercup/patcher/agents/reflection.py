@@ -652,7 +652,7 @@ class ReflectionAgent(PatcherAgentBase):
                     "EXTRA_INFORMATION": extra_information,
                 },
             )
-        except Exception as e:
+        except Exception as e:  # Broad catch intentional: LLM API + output parsing can fail in many ways
             logger.error(
                 "[%s / %s] Error getting reflection result (or parsing it): %s",
                 state.context.task_id,

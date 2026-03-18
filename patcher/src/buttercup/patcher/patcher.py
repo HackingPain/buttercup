@@ -167,7 +167,7 @@ class Patcher:
                 logger.error(
                     f"Failed to generate patch for vulnerability {patch_input.task_id}/{patch_input.internal_patch_id}",
                 )
-        except Exception as e:
+        except Exception as e:  # Broad catch intentional: prevent event loop crash
             logger.exception(
                 f"Failed to generate patch for vulnerability {patch_input.task_id}/{patch_input.internal_patch_id}: {e}",  # noqa: E501
             )

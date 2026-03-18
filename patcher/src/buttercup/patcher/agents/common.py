@@ -20,7 +20,7 @@ from langgraph.managed import RemainingSteps
 from langgraph.prebuilt.chat_agent_executor import AgentStatePydantic
 from pydantic import BaseModel, Field
 
-from buttercup.common.challenge_task import ChallengeTask
+from buttercup.common.challenge_task import ChallengeTask, ChallengeTaskError
 from buttercup.common.clusterfuzz_parser import CrashInfo
 from buttercup.common.llm import ButtercupLLM, create_default_llm_with_temperature
 from buttercup.patcher.utils import (
@@ -189,7 +189,7 @@ class PatchAttempt(BaseModel):
             try:
                 ChallengeTask(task_dir, local_task_dir=task_dir).cleanup()
                 to_remove.append(key)
-            except Exception:
+            except (OSError, ChallengeTaskError):
                 logger.warning("Failed to clean up built challenge %s", task_dir, exc_info=True)
 
         for key in to_remove:

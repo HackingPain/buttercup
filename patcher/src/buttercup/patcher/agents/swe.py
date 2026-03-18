@@ -418,7 +418,7 @@ class SWEAgent(PatcherAgentBase):
         except FileNotFoundError:
             logger.warning("_get_file_content: File %s(%s) not found", file_path, relative_file_path)
             return None
-        except Exception:
+        except OSError:
             logger.exception("_get_file_content: Error reading file %s(%s)", file_path, relative_file_path)
             return None
 
@@ -892,7 +892,7 @@ class SWEAgent(PatcherAgentBase):
             )
             if new_summary:
                 patch_strategy.summary = new_summary
-        except Exception as e:
+        except Exception as e:  # Broad catch intentional: LLM API call can fail in many ways
             logger.error("Error parsing patch strategy summary: %s", e)
             patch_strategy.summary = patch_strategy.full
 

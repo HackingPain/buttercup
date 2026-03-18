@@ -139,7 +139,7 @@ def find_file_in_source_dir(challenge: ChallengeTask, file_path: Path) -> Path |
                 res = list(challenge.get_source_path().rglob(Path(*parts).as_posix()))
                 if res:
                     return cast("Path", res[0].relative_to(challenge.get_source_path()))
-    except Exception:
+    except (OSError, ValueError):
         return None
 
     return None

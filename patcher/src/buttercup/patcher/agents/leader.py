@@ -121,6 +121,6 @@ class PatcherLeaderAgent(PatcherAgentBase):
         except ValueError:
             logger.exception("Could not generate a patch")
             return None
-        except Exception:
+        except Exception:  # Broad catch intentional: LLM-driven patch generation can fail in many ways
             logger.exception("Unexpected error during patch generation")
             return None
