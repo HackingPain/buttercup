@@ -580,7 +580,7 @@ def _create_task(
                 color="error",
             )
 
-        except Exception as db_error:
+        except Exception as db_error:  # Broad catch intentional: DB fallback must not crash
             logger.error(f"Failed to create failed task in database: {db_error}")
             # If we can't even create the failed task, return the original error
             return Error(message=f"Failed to create task: {e!s}")
@@ -695,7 +695,7 @@ def get_failed_tasks(database_manager: DatabaseManager = Depends(get_database_ma
                 task_info = task_to_task_info(task)
                 tasks_list.append(task_info)
                 logger.info(f"Converted task {task.task_id} to TaskInfo with status: {task_info.status}")
-            except Exception as task_error:
+            except (AttributeError, TypeError, ValueError) as task_error:
                 logger.error(f"Error converting task {task.task_id} to TaskInfo: {task_error}", exc_info=True)
                 # Skip this task and continue with others
                 continue
