@@ -17,9 +17,6 @@ from langfuse.callback import CallbackHandler
 
 logger = logging.getLogger(__name__)
 
-P = ParamSpec("P")
-T = TypeVar("T")
-
 # Transient OpenAI/LiteLLM error types that are safe to retry.
 _RETRYABLE_OPENAI_ERRORS: tuple[type[Exception], ...] = (
     openai.RateLimitError,
@@ -43,7 +40,7 @@ def _is_retryable(exc: Exception) -> bool:
 
 
 @overload
-def retry_llm(
+def retry_llm[**P, T](
     fn: Callable[P, T],
     *,
     max_retries: int = ...,
@@ -53,7 +50,7 @@ def retry_llm(
 
 
 @overload
-def retry_llm(
+def retry_llm[**P, T](
     fn: None = None,
     *,
     max_retries: int = ...,
@@ -62,7 +59,7 @@ def retry_llm(
 ) -> Callable[[Callable[P, T]], Callable[P, T]]: ...
 
 
-def retry_llm(
+def retry_llm[**P, T](
     fn: Callable[P, T] | None = None,
     *,
     max_retries: int = 3,

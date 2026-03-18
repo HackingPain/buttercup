@@ -12,6 +12,7 @@ from redis import Redis
 
 from buttercup.common import node_local
 from buttercup.common.challenge_task import ChallengeTask
+from buttercup.common.logger import log_event
 from buttercup.common.clusterfuzz_parser.crash_comparer import CrashComparer
 from buttercup.common.constants import ARCHITECTURE
 from buttercup.common.datastructures.msg_pb2 import (
@@ -312,7 +313,7 @@ class CompetitionAPI:
                 span.set_status(Status(StatusCode.OK))
                 return response.pov_id, mapped_status
         except Exception as e:  # Broad catch intentional: competition API can raise various HTTP/API exceptions
-            logger.error(f"[{crash.crash.target.task_id}] Failed to submit vulnerability: {e}")
+            log_event(logger, logging.ERROR, "Failed to submit vulnerability", task_id=crash.crash.target.task_id, error=e)
             return None, SubmissionResult.ERRORED
 
     def get_pov_status(self, task_id: str, pov_id: str) -> SubmissionResult:
@@ -375,7 +376,7 @@ class CompetitionAPI:
                 SubmissionResult.ACCEPTED,
                 SubmissionResult.PASSED,
             ]:
-                logger.error(f"[{task_id}] Patch submission rejected (status: {response.status}) for harness: {patch}")
+                log_event(logger, logging.ERROR, "Patch submission rejected", task_id=task_id, status=response.status, harness=patch)
                 span.set_status(Status(StatusCode.ERROR))
                 return (None, mapped_status)
 
@@ -563,7 +564,7 @@ class CompetitionAPI:
                 return True
 
             except Exception as e:  # Broad catch intentional: competition API can raise various HTTP/API exceptions
-                logger.error(f"[{task_id}] Bundle deletion failed for bundle_id: {bundle_id}, error: {e}")
+                log_event(logger, logging.ERROR, "Bundle deletion failed", task_id=task_id, bundle_id=bundle_id, error=e)
                 span.set_status(Status(StatusCode.ERROR))
                 return False
 
@@ -1748,7 +1749,7 @@ class Submissions:
                     )
                     self._consolidate_similar_submissions(crash=None, similar_entries=to_merge)
             except Exception as err:  # Broad catch intentional: prevent event loop crash
-                logger.error(f"[{i}:{_task_id(e)}] Error merging entries by patch mitigation: {err}")
+                log_event(logger, logging.ERROR, "Error merging entries by patch mitigation", submission_id=f"{i}:{_task_id(e)}", error=err)
 
     def process_cycle(self) -> None:
         """Main processing loop that advances all submission state machines.
