@@ -5,6 +5,7 @@ mocking only external services (Redis, LLM APIs) while testing the actual
 processing pipeline.
 """
 
+import os
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
@@ -13,6 +14,10 @@ from langchain_core.exceptions import OutputParserException
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, ToolMessage
 from langchain_core.messages.tool import ToolCall
+
+# Set required env var before importing modules that need it
+if "PYTHON_WASM_BUILD_PATH" not in os.environ:
+    os.environ["PYTHON_WASM_BUILD_PATH"] = "/dev/null"
 
 from buttercup.common.challenge_task import ChallengeTask
 from buttercup.common.datastructures.msg_pb2 import FunctionCoverage
@@ -197,15 +202,16 @@ class TestGetDiffContentIntegration:
         """Should return None for empty diff list."""
         assert get_diff_content([]) is None
 
-    def test_multiple_diffs_returns_first(self, tmp_path: Path):
-        """Should return only the first diff when multiple are provided."""
+    def test_multiple_diffs_concatenated(self, tmp_path: Path):
+        """Should concatenate all diffs when multiple are provided."""
         diff1 = tmp_path / "first.diff"
         diff1.write_text("first diff content")
         diff2 = tmp_path / "second.diff"
         diff2.write_text("second diff content")
 
         result = get_diff_content([diff1, diff2])
-        assert result == "first diff content"
+        assert "first diff content" in result
+        assert "second diff content" in result
 
 
 # ---------------------------------------------------------------------------

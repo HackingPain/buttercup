@@ -196,7 +196,7 @@ def save_artifact(
         logger.info(f"Saved {artifact_type} artifact: {file_path}")
         return True
 
-    except Exception as e:
+    except OSError as e:
         logger.error(f"Failed to save {artifact_type} artifact {artifact_id} for task {task_id}: {e}")
         return False
 
@@ -220,7 +220,7 @@ def get_artifact(task_id: str, artifact_type: str, artifact_id: str) -> Any:
             return json.load(file_path.open("r", encoding="utf-8"))
         logger.error(f"Unknown artifact type: {artifact_type}")
         return None
-    except Exception:
+    except (OSError, json.JSONDecodeError, ValueError) as e:
         logger.exception(f"Failed to get {artifact_type} artifact {artifact_id} for task {task_id}")
         return None
 
@@ -245,8 +245,8 @@ def delete_artifact(task_id: str, artifact_type: str, artifact_id: str) -> bool:
         deleted_path = file_path.with_suffix(file_path.suffix + ".deleted")
         file_path.rename(deleted_path)
         return True
-    except Exception:
-        logger.exception(f"Failed to get {artifact_type} artifact {artifact_id} for task {task_id}")
+    except OSError:
+        logger.exception(f"Failed to delete {artifact_type} artifact {artifact_id} for task {task_id}")
         return False
 
 
@@ -316,7 +316,7 @@ def calculate_task_status(task: Task) -> str:
             return "expired"
 
         return "active"
-    except Exception:
+    except (ValueError, TypeError, AttributeError):
         return "active"  # Default to active if parsing fails
 
 

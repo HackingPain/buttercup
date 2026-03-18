@@ -628,10 +628,7 @@ def batch_tool(
                 logger.warning("Unexpected non-dict Command.update type: %s", type(result.update))
                 continue
             if "messages" in result.update:
-                result_combined = "\n".join(
-                    message.content
-                    for message in result.update["messages"]
-                )
+                result_combined = "\n".join(message.content for message in result.update["messages"])
                 combined_message += f"Batched call {i}:\n{result_combined}\n"
             if "retrieved_context" in result.update:
                 combined_context.update(result.update["retrieved_context"])
