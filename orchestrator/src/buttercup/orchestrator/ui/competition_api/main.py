@@ -363,7 +363,7 @@ def pov_to_pov_info(pov: POV) -> dict[str, Any]:
             "sanitizer": getattr(pov, "sanitizer", "unknown"),
             "testcase": base64.b64encode(getattr(pov, "testcase", b"")),
         }
-    except Exception as e:
+    except (AttributeError, TypeError, ValueError) as e:
         logger.error(f"Error converting POV to info: {e}")
         return {"pov_id": "error", "error": str(e)}
 
@@ -376,7 +376,7 @@ def patch_to_patch_info(patch: Patch) -> dict[str, Any]:
             "patch": base64.b64encode(getattr(patch, "patch", "").encode("utf-8", errors="ignore")),
             "status": getattr(patch, "status", "accepted"),
         }
-    except Exception as e:
+    except (AttributeError, TypeError, ValueError) as e:
         logger.error(f"Error converting patch to info: {e}")
         return {"patch_id": "error", "error": str(e)}
 
@@ -393,7 +393,7 @@ def bundle_to_bundle_info(bundle: Bundle) -> dict[str, Any]:
             "pov_id": getattr(bundle, "pov_id", None),
             "submitted_sarif_id": getattr(bundle, "submitted_sarif_id", None),
         }
-    except Exception as e:
+    except (AttributeError, TypeError, ValueError) as e:
         logger.error(f"Error converting bundle to info: {e}")
         return {"bundle_id": "error", "error": str(e)}
 
