@@ -5,7 +5,7 @@ import os
 import time
 from collections.abc import Callable
 from enum import Enum
-from typing import Any, ParamSpec, TypeVar, overload
+from typing import Any, overload
 
 import openai
 import requests
@@ -37,7 +37,7 @@ def _is_retryable(exc: Exception) -> bool:
     if isinstance(exc, openai.APIStatusError) and exc.status_code in (429, 500, 502, 503):
         return True
     # Connection-level errors surfaced by httpx / requests
-    if isinstance(exc, (ConnectionError, TimeoutError)):
+    if isinstance(exc, ConnectionError | TimeoutError):
         return True
     return False
 
