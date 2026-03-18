@@ -106,7 +106,7 @@ def retry_llm[**P, T](
                 # Unreachable, but keeps mypy happy.
                 raise last_exc  # type: ignore[misc]
 
-            return async_wrapper  # type: ignore[assignment]
+            return async_wrapper  # type: ignore[return-value]
 
         @functools.wraps(func)
         def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
@@ -131,11 +131,11 @@ def retry_llm[**P, T](
             # Unreachable, but keeps mypy happy.
             raise last_exc  # type: ignore[misc]
 
-        return sync_wrapper  # type: ignore[assignment]
+        return sync_wrapper
 
     if fn is not None:
         return decorator(fn)
-    return decorator  # type: ignore[assignment]
+    return decorator
 
 
 class ButtercupLLM(Enum):
