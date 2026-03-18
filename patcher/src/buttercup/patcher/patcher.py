@@ -19,6 +19,7 @@ from buttercup.common.queues import GroupNames, QueueFactory, QueueNames, Reliab
 from buttercup.common.task_registry import TaskRegistry
 from buttercup.common.utils import serve_loop
 from buttercup.patcher.agents.leader import PatcherLeaderAgent
+from buttercup.patcher.timeouts import PatcherTimeoutConfig, PatcherTimeoutError, TimeoutGuard
 from buttercup.patcher.utils import PatchInput, PatchInputPoV, PatchOutput
 
 logger = logging.getLogger(__name__)
@@ -72,6 +73,10 @@ class Patcher:
 
     def _process_vulnerability(self, input: PatchInput) -> PatchOutput | None:
         ro_task = ChallengeTask(input.povs[0].challenge_task_dir)
+
+        timeout_guard = TimeoutGuard(PatcherTimeoutConfig())
+        timeout_guard.start()
+
         patcher_agent = PatcherLeaderAgent(
             ro_task,
             input,
@@ -80,8 +85,18 @@ class Patcher:
             work_dir=self.scratch_dir,
             tasks_storage=self.task_storage_dir,
             find_tests=self.find_tests,
+            timeout_guard=timeout_guard,
         )
-        patch = patcher_agent.run_patch_task()
+        try:
+            patch = patcher_agent.run_patch_task()
+        except PatcherTimeoutError:
+            logger.warning(
+                "Patcher timeout for vulnerability %s/%s — returning best patch so far",
+                input.task_id,
+                input.internal_patch_id,
+            )
+            return None
+
         if patch is None:
             logger.error("Could not generate a patch for vulnerability %s/%s", input.task_id, input.internal_patch_id)
             return None

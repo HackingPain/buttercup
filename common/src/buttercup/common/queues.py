@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -32,6 +33,9 @@ from buttercup.common.redis_pool import get_redis_client
 # ruff: noqa: UP046
 
 TIMES_DELIVERED_FIELD = "times_delivered"
+
+DEFAULT_MAX_RETRIES = 3
+DLQ_SUFFIX = "_dlq"
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -108,8 +112,15 @@ class ReliableQueue(Generic[MsgType]):
     reader_name: str | None = None
     last_stream_id: str = ">"
     block_time: int | None = 200
+    max_retries: int = DEFAULT_MAX_RETRIES
 
     INAME = b"item"
+    DLQ_ITEM = b"item"
+    DLQ_ERROR = b"error"
+    DLQ_RETRY_COUNT = b"retry_count"
+    DLQ_TIMESTAMP = b"timestamp"
+    DLQ_ORIGINAL_QUEUE = b"original_queue"
+    DLQ_ORIGINAL_ID = b"original_id"
 
     def __post_init__(self) -> None:
         if self.reader_name is None:
@@ -212,6 +223,106 @@ class ReliableQueue(Generic[MsgType]):
     def claim_item(self, item_id: str, min_idle_time: int = 0) -> None:
         self.redis.xclaim(self.queue_name, self.group_name, self.reader_name, min_idle_time, [item_id])
 
+    @property
+    def dlq_name(self) -> str:
+        """Return the dead letter queue name for this queue."""
+        return f"{self.queue_name}{DLQ_SUFFIX}"
+
+    def should_move_to_dlq(self, item_id: str) -> bool:
+        """Check whether a message has exceeded the maximum retry count.
+
+        This requires a consumer group to be configured (uses ``times_delivered``
+        internally).  Returns ``False`` when no group is set so callers can
+        safely invoke this without guarding on group membership.
+        """
+        if self.group_name is None:
+            return False
+        return self.times_delivered(item_id) > self.max_retries
+
+    @_ensure_group_name
+    def move_to_dlq(self, item_id: str, error: str = "") -> None:
+        """Move a message to the dead letter queue.
+
+        The original message payload is preserved alongside failure metadata
+        (timestamp, error description, retry count, originating queue and
+        message id).  The message is acknowledged in the source queue after
+        being written to the DLQ so it will no longer be re-delivered.
+
+        Args:
+            item_id: The stream message id to move.
+            error: An optional human-readable error description.
+        """
+        assert self.group_name
+
+        # Read the original message data from the stream
+        messages = self.redis.xrange(self.queue_name, min=item_id, max=item_id, count=1)
+        if not messages:
+            logger.warning("Cannot move message %s to DLQ: message not found in %s", item_id, self.queue_name)
+            return
+
+        original_data = messages[0][1]
+        retry_count = self.times_delivered(item_id)
+
+        dlq_entry: dict[bytes, bytes | str | int | float] = {
+            self.DLQ_ITEM: original_data[self.INAME],
+            self.DLQ_ERROR: error,
+            self.DLQ_RETRY_COUNT: retry_count,
+            self.DLQ_TIMESTAMP: time.time(),
+            self.DLQ_ORIGINAL_QUEUE: self.queue_name,
+            self.DLQ_ORIGINAL_ID: item_id,
+        }
+
+        self.redis.xadd(self.dlq_name, dlq_entry)
+
+        # Acknowledge in the source queue so it stops being retried
+        self.ack_item(item_id)
+
+        logger.info(
+            "Moved message %s from %s to DLQ %s (retries=%d, error=%s)",
+            item_id,
+            self.queue_name,
+            self.dlq_name,
+            retry_count,
+            error,
+        )
+
+    def get_dlq_depth(self) -> int:
+        """Return the number of messages currently in the dead letter queue."""
+        return self.redis.xlen(self.dlq_name)
+
+    def reprocess_dlq(self, count: int = 0) -> int:
+        """Move messages from the DLQ back to the main queue for reprocessing.
+
+        Each DLQ entry's original serialized payload is pushed to the main
+        queue as a new message and then deleted from the DLQ stream.
+
+        Args:
+            count: Maximum number of messages to reprocess.  ``0`` means all.
+
+        Returns:
+            The number of messages moved back to the main queue.
+        """
+        # Read DLQ entries oldest-first
+        entries = self.redis.xrange(self.dlq_name, count=count if count > 0 else None)
+        if not entries:
+            return 0
+
+        moved = 0
+        for entry_id, data in entries:
+            payload = data.get(self.DLQ_ITEM)
+            if payload is None:
+                logger.warning("DLQ entry %s in %s missing payload, skipping", entry_id, self.dlq_name)
+                continue
+
+            # Re-enqueue in the main stream
+            self.redis.xadd(self.queue_name, {self.INAME: payload})
+            # Remove from DLQ
+            self.redis.xdel(self.dlq_name, entry_id)
+            moved += 1
+
+        logger.info("Reprocessed %d messages from DLQ %s back to %s", moved, self.dlq_name, self.queue_name)
+        return moved
+
 
 @dataclass
 class QueueConfig:
@@ -219,6 +330,7 @@ class QueueConfig:
     msg_builder: type
     task_timeout_ms: int
     group_names: list[GroupNames] = field(default_factory=list)
+    max_retries: int = DEFAULT_MAX_RETRIES
 
 
 @dataclass
@@ -436,6 +548,7 @@ class QueueFactory:
             "queue_name": config.queue_name,
             "msg_builder": config.msg_builder,
             "task_timeout_ms": config.task_timeout_ms,
+            "max_retries": config.max_retries,
         }
         if group_name is not None:
             if group_name not in config.group_names:

@@ -20,18 +20,27 @@
 from __future__ import annotations
 
 import importlib.metadata
+import time
 from typing import Annotated
 from uuid import UUID
 
 from argon2 import PasswordHasher, Type
 from argon2.exceptions import VerifyMismatchError
-from fastapi import APIRouter, Depends, FastAPI, HTTPException, status
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, Response, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel, Field
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.responses import PlainTextResponse
 from urllib3.exceptions import MaxRetryError, NewConnectionError
 
 from buttercup.common.logger import setup_package_logger
-from buttercup.common.queues import ReliableQueue
+from buttercup.common.metrics import (
+    HTTP_REQUEST_DURATION,
+    HTTP_REQUESTS_TOTAL,
+    QUEUE_DEPTH,
+    REGISTRY,
+)
+from buttercup.common.queues import QueueNames, ReliableQueue
 from buttercup.common.sarif_store import SARIFStore
 from buttercup.orchestrator.api_client_factory import create_api_client
 from buttercup.orchestrator.competition_api_client.api.ping_api import PingApi
@@ -53,6 +62,9 @@ from buttercup.orchestrator.task_server.dependencies import (
 )
 from buttercup.orchestrator.task_server.models.types import SARIFBroadcast, Status, StatusState, Task
 from buttercup.orchestrator.task_server.rate_limit import RateLimitMiddleware, RateLimitStore
+
+# Paths that should be excluded from HTTP metrics recording (infrastructure endpoints).
+_METRICS_SKIP_PATHS: set[str] = {"/metrics", "/healthz", "/readyz"}
 
 # Current API version identifier. Bump this when releasing a new version of the API.
 API_VERSION = "v1"
@@ -76,6 +88,31 @@ app = FastAPI(
     servers=[{"url": "/"}],
     log_config=None,
 )
+
+# ---------------------------------------------------------------------------
+# HTTP metrics middleware
+# ---------------------------------------------------------------------------
+
+
+class MetricsMiddleware(BaseHTTPMiddleware):
+    """Record request count and duration for every HTTP request."""
+
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        if request.url.path in _METRICS_SKIP_PATHS:
+            return await call_next(request)
+
+        start = time.monotonic()
+        response = await call_next(request)
+        elapsed = time.monotonic() - start
+
+        method = request.method
+        endpoint = request.url.path
+        HTTP_REQUESTS_TOTAL.inc(method=method, endpoint=endpoint, status_code=str(response.status_code))
+        HTTP_REQUEST_DURATION.observe(elapsed, method=method, endpoint=endpoint)
+        return response
+
+
+app.add_middleware(MetricsMiddleware)
 
 # ---------------------------------------------------------------------------
 # Rate limiting
@@ -369,3 +406,26 @@ def get_api_version() -> dict[str, str]:
         "api_version": API_VERSION,
         "app_version": __version__,
     }
+
+
+# ---------------------------------------------------------------------------
+# Prometheus-compatible metrics endpoint (unauthenticated)
+# ---------------------------------------------------------------------------
+@app.get("/metrics", tags=["metrics"], response_class=PlainTextResponse)
+def get_metrics() -> PlainTextResponse:
+    """Expose application metrics in Prometheus text exposition format.
+
+    Queue depths are sampled on each request so that the gauge values
+    reflect the current state of the Redis streams.
+    """
+    # Sample queue depths from Redis.
+    try:
+        r = get_redis()
+        for qn in QueueNames:
+            length = r.xlen(qn.value)
+            QUEUE_DEPTH.set(float(length), queue_name=qn.value)
+    except Exception:  # Broad catch intentional: metrics must not fail if Redis is down
+        pass
+
+    body = REGISTRY.collect()
+    return PlainTextResponse(content=body, media_type="text/plain; version=0.0.4; charset=utf-8")

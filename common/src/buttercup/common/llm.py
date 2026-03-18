@@ -15,6 +15,8 @@ from langchain_core.runnables import ConfigurableField, Runnable
 from langchain_openai.chat_models import ChatOpenAI
 from langfuse.callback import CallbackHandler
 
+from buttercup.common.metrics import LLM_CALL_DURATION, LLM_CALLS_TOTAL
+
 logger = logging.getLogger(__name__)
 
 # Transient OpenAI/LiteLLM error types that are safe to retry.
@@ -85,13 +87,21 @@ def retry_llm[**P, T](
 
             @functools.wraps(func)
             async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+                fname = func.__qualname__
                 last_exc: Exception | None = None
+                start = time.monotonic()
                 for attempt in range(max_retries + 1):
                     try:
-                        return await func(*args, **kwargs)  # type: ignore[no-any-return]
+                        result = await func(*args, **kwargs)  # type: ignore[no-any-return]
+                        LLM_CALLS_TOTAL.inc(function=fname, status="success")
+                        LLM_CALL_DURATION.observe(time.monotonic() - start, function=fname)
+                        return result
                     except Exception as exc:  # Broad catch intentional: retry decorator filters via _is_retryable
                         if not _is_retryable(exc) or attempt == max_retries:
+                            LLM_CALLS_TOTAL.inc(function=fname, status="failure")
+                            LLM_CALL_DURATION.observe(time.monotonic() - start, function=fname)
                             raise
+                        LLM_CALLS_TOTAL.inc(function=fname, status="retry")
                         last_exc = exc
                         delay = min(base_delay * (2**attempt), max_delay)
                         logger.warning(
@@ -110,13 +120,21 @@ def retry_llm[**P, T](
 
         @functools.wraps(func)
         def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+            fname = func.__qualname__
             last_exc: Exception | None = None
+            start = time.monotonic()
             for attempt in range(max_retries + 1):
                 try:
-                    return func(*args, **kwargs)
+                    result = func(*args, **kwargs)
+                    LLM_CALLS_TOTAL.inc(function=fname, status="success")
+                    LLM_CALL_DURATION.observe(time.monotonic() - start, function=fname)
+                    return result
                 except Exception as exc:  # Broad catch intentional: retry decorator filters via _is_retryable
                     if not _is_retryable(exc) or attempt == max_retries:
+                        LLM_CALLS_TOTAL.inc(function=fname, status="failure")
+                        LLM_CALL_DURATION.observe(time.monotonic() - start, function=fname)
                         raise
+                    LLM_CALLS_TOTAL.inc(function=fname, status="retry")
                     last_exc = exc
                     delay = min(base_delay * (2**attempt), max_delay)
                     logger.warning(

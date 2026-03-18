@@ -20,6 +20,7 @@ from buttercup.patcher.agents.qe import QEAgent
 from buttercup.patcher.agents.reflection import ReflectionAgent
 from buttercup.patcher.agents.rootcause import RootCauseAgent
 from buttercup.patcher.agents.swe import SWEAgent
+from buttercup.patcher.timeouts import PatcherTimeoutError, TimeoutGuard
 from buttercup.patcher.utils import PatchOutput
 
 logger = logging.getLogger(__name__)
@@ -36,6 +37,7 @@ class PatcherLeaderAgent(PatcherAgentBase):
     tasks_storage: Path
     model_name: str | None = None
     find_tests: bool = True
+    timeout_guard: TimeoutGuard | None = None
 
     def _init_patch_team(self) -> StateGraph[PatcherAgentState, PatcherConfig, PatcherAgentState, PatcherAgentState]:
         rootcause_agent = RootCauseAgent(self.challenge, self.input, chain_call=self.chain_call)
@@ -99,6 +101,9 @@ class PatcherLeaderAgent(PatcherAgentBase):
 
         state = PatcherAgentState(messages=[], context=self.input)
         try:
+            if self.timeout_guard is not None:
+                self.timeout_guard.check_limits()
+
             tracer = trace.get_tracer(__name__)
             with tracer.start_as_current_span("generate_pov_patch") as span:
                 set_crs_attributes(
@@ -115,6 +120,8 @@ class PatcherLeaderAgent(PatcherAgentBase):
                 output_state = PatcherAgentState(**output_state_dict)
                 output_state.clean_built_challenges()
                 return output_state.get_successful_patch()
+        except PatcherTimeoutError:
+            raise
         except openai.OpenAIError:
             logger.exception("OpenAI error")
             return None
