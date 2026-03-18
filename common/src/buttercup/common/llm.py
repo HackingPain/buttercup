@@ -88,7 +88,7 @@ def retry_llm[**P, T](
                 last_exc: Exception | None = None
                 for attempt in range(max_retries + 1):
                     try:
-                        return await func(*args, **kwargs)  # type: ignore[misc]
+                        return await func(*args, **kwargs)  # type: ignore[no-any-return]
                     except Exception as exc:
                         if not _is_retryable(exc) or attempt == max_retries:
                             raise
@@ -106,7 +106,7 @@ def retry_llm[**P, T](
                 # Unreachable, but keeps mypy happy.
                 raise last_exc  # type: ignore[misc]
 
-            return async_wrapper  # type: ignore[return-value]
+            return async_wrapper  # type: ignore[assignment]
 
         @functools.wraps(func)
         def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
@@ -131,11 +131,11 @@ def retry_llm[**P, T](
             # Unreachable, but keeps mypy happy.
             raise last_exc  # type: ignore[misc]
 
-        return sync_wrapper  # type: ignore[return-value]
+        return sync_wrapper  # type: ignore[assignment]
 
     if fn is not None:
         return decorator(fn)
-    return decorator  # type: ignore[return-value]
+    return decorator  # type: ignore[assignment]
 
 
 class ButtercupLLM(Enum):

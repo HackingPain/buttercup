@@ -858,8 +858,12 @@ class ChallengeTask:
             raise ChallengeTaskError(f"[task {self.task_dir}] File not found: {e!s}") from e
         except subprocess.CalledProcessError as e:
             log_event(
-                logger, logging.ERROR, "Error applying diff",
-                task_id=self.task_dir, error=e, returncode=e.returncode,
+                logger,
+                logging.ERROR,
+                "Error applying diff",
+                task_id=self.task_dir,
+                error=e,
+                returncode=e.returncode,
             )
             logger.debug(f"[task {self.task_dir}] Error stdout: {e.stdout}")
             logger.debug(f"[task {self.task_dir}] Error stderr: {e.stderr}")

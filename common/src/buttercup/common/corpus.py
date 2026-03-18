@@ -80,7 +80,14 @@ class InputDir:
         try:
             (self.path / file).unlink()
         except OSError as e:
-            log_event(logger, logging.ERROR, "Error removing file from local corpus", file_path=file, corpus=self.path, error=e)
+            log_event(
+                logger,
+                logging.ERROR,
+                "Error removing file from local corpus",
+                file_path=file,
+                corpus=self.path,
+                error=e,
+            )
 
     def remove_file(self, file: str) -> None:
         self.remove_local_file(file)
@@ -88,8 +95,12 @@ class InputDir:
             (self.remote_path / file).unlink()
         except OSError as e:
             log_event(
-                logger, logging.ERROR, "Error removing file from remote corpus",
-                file_path=file, corpus=self.remote_path, error=e,
+                logger,
+                logging.ERROR,
+                "Error removing file from remote corpus",
+                file_path=file,
+                corpus=self.remote_path,
+                error=e,
             )
 
     @classmethod
@@ -235,6 +246,13 @@ class Corpus(InputDir):
                 try:
                     self.remove_local_file(file)
                 except OSError as e:
-                    log_event(logger, logging.ERROR, "Error removing file from local corpus", file_path=file, corpus=self.path, error=e)
+                    log_event(
+                        logger,
+                        logging.ERROR,
+                        "Error removing file from local corpus",
+                        file_path=file,
+                        corpus=self.path,
+                        error=e,
+                    )
         if removed > 0:
             logger.info(f"Removed {removed} files from local corpus {self.path}")
