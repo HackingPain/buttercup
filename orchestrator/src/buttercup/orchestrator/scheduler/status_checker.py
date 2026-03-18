@@ -40,6 +40,6 @@ class StatusChecker:
             return False
         try:
             return check_fn()
-        except Exception as e:
+        except Exception as e:  # Broad catch intentional: prevent event loop crash
             logger.error(f"Failed to check statuses: {e!s}")
             return False

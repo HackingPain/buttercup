@@ -43,7 +43,7 @@ class ScratchCleaner:
                     shutil.rmtree(task_dir, ignore_errors=True)
                     logger.info(f"Deleted CRS scratch space for expired task {task.task_id}")
                     did_delete = True
-                except Exception:
+                except OSError:
                     logger.exception(f"Failed to delete CRS scratch space for expired task {task.task_id}")
 
         return did_delete

@@ -165,7 +165,7 @@ def _match_thread_callstack(frames: list[StackFrame], sarif_infos: list[SarifInf
             match = _match_frame(frame, sarif_infos)
             if match:
                 return match
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError) as e:
             logger.error(f"Error getting frame {frame}: {e}")
             continue
 
@@ -235,7 +235,7 @@ def _match_frame(frame: Frame, sarif_infos: list[SarifInfo]) -> SarifMatch | Non
                     matches_full_path=matches_full_path,
                     matches_lines=matches_lines,
                 )
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError) as e:
             logger.error(f"Error matching frame {frame} with SARIF info {info}: {e}")
             continue
 

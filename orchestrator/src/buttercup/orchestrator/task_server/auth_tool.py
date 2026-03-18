@@ -138,7 +138,7 @@ def main() -> int:
         key_id, token, token_hash = generate_api_key()
         print_api_key_info(key_id, token, token_hash, args.env)
         return 0
-    except Exception as e:
+    except Exception as e:  # Broad catch intentional: CLI entry point error reporting
         rprint(f"[bold red]Error:[/bold red] {e}")
         return 1
 

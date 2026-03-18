@@ -384,8 +384,8 @@ class CodeQuery:
                 file_path,
             )
 
-        # FIXME(Evan): Sometimes cscope doesn't identify a function (option 2).
-        # They can be found by looking for symbols (option 1).
+        # Workaround: cscope sometimes fails to identify functions via option 2 (function definitions),
+        # so we also search with option 1 (symbols) as a fallback to improve coverage.
         results: list[CQSearchResult] = []
         flags = ["1", "2"]
         for flag in flags:
@@ -658,7 +658,8 @@ class CodeQuery:
         # the function definitions of callees called from a function which is
         # contained at a specific file line number.
 
-        # TODO(Evan): If we do this, then tests become non-deterministic. Which file path do we keep?
+        # Deduplication disabled: causes non-deterministic test results because the same function
+        # can appear in multiple file paths (e.g., symlinks or copies), and the chosen path varies.
         #       # Make sure we don't add the same function twice
         #       unique_functions: dict[str, list[Function]] = {}
         #       for f in callees:
@@ -669,9 +670,9 @@ class CodeQuery:
         #               unique_functions[root].append(f)
         #       callees = [f for fs in unique_functions.values() for f in fs]
 
-        # TODO(boyan): if function is a str we should try to find the actual function
-        # at the beginning of this function so we can use to do the filtering. If not
-        # then we need the function file
+        # When function is a str, we skip callee filtering because we lack the Function
+        # object needed for file-path-based deduplication. To fix, resolve the str to a
+        # Function via cscope lookup at the start of this method.
         if isinstance(function, Function):
             callees = set(self._filter_callees(function, list(callees)))
 

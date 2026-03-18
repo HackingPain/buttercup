@@ -134,7 +134,7 @@ class DatabaseManager:
                         patch.status = "accepted"
                     session.commit()
                     logger.info("Patch status migration completed")
-        except Exception as e:
+        except Exception as e:  # Broad catch intentional: migration can fail in many ways (schema, DB)
             logger.warning(f"Patch status migration failed (this is normal for new databases): {e}")
 
     def get_session(self) -> Session:

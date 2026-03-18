@@ -77,7 +77,7 @@ class Downloader:
 
             logger.info(f"[task {task_id}] Successfully downloaded source type {source.source_type} to {filepath}")
             return filepath
-        except Exception as e:
+        except (requests.RequestException, OSError) as e:
             logger.error(f"Failed to download {source.url}: {e!s}")
             return None
 
@@ -120,7 +120,7 @@ class Downloader:
 
             logger.info(f"[task {task_id}] Successfully extracted {source_file}")
             return True
-        except Exception as e:
+        except (tarfile.TarError, OSError) as e:
             logger.error(f"[task {task_id}] Failed to extract {source_file}: {e!s}")
             return False
 
@@ -158,8 +158,7 @@ class Downloader:
                 return True
             logger.exception(f"Failed to move task directory: {e!s}")
             return False
-        except Exception as e:
-            # Re-raise any other errors
+        except Exception as e:  # Broad catch intentional: catch unexpected errors from rename operations
             logger.exception(f"Failed to move task directory: {e!s}")
             return False
 

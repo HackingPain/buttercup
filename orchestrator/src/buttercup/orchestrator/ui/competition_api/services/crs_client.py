@@ -225,7 +225,7 @@ class CRSClient:
 
             return crs_response
 
-        except Exception as e:
+        except requests.RequestException as e:
             logger.error(f"Error submitting task to CRS: {e}")
             return CRSResponse(success=False, status_code=0, response_text=str(e), error_details={"exception": str(e)})
 
@@ -260,7 +260,7 @@ class CRSClient:
 
             return crs_response
 
-        except Exception as e:
+        except requests.RequestException as e:
             logger.error(f"Error submitting SARIF Broadcasts to CRS: {e}")
             return CRSResponse(success=False, status_code=0, response_text=str(e), error_details={"exception": str(e)})
 
@@ -295,6 +295,6 @@ class CRSClient:
             logger.error(f"CRS ping failed. Status: {response.status_code}, Response: {response.text}")
             return False
 
-        except Exception as e:
+        except requests.RequestException as e:
             logger.error(f"Error pinging CRS: {e}")
             return False
