@@ -17,6 +17,7 @@ from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from buttercup.common.logger import log_event
 from buttercup.common.telemetry import crs_instance_id
 from buttercup.orchestrator.ui.competition_api.models.types import (
     BundleSubmission,
@@ -197,7 +198,10 @@ def save_artifact(
         return True
 
     except OSError as e:
-        logger.error(f"Failed to save {artifact_type} artifact {artifact_id} for task {task_id}: {e}")
+        log_event(
+            logger, logging.ERROR, "Failed to save artifact",
+            task_id=task_id, artifact_type=artifact_type, artifact_id=artifact_id, error=e,
+        )
         return False
 
 
@@ -444,7 +448,11 @@ def task_to_task_info(task: Task) -> TaskInfo:
 
         return TaskInfo(**task_data)
     except (AttributeError, TypeError, ValueError) as e:
-        logger.error(f"Error in task_to_task_info for task {getattr(task, 'task_id', 'unknown')}: {e}", exc_info=True)
+        log_event(
+            logger, logging.ERROR, "Error in task_to_task_info",
+            task_id=getattr(task, "task_id", "unknown"), error=e,
+        )
+        logger.debug("task_to_task_info traceback", exc_info=True)
         raise
 
 
@@ -714,7 +722,8 @@ def get_failed_tasks(database_manager: DatabaseManager = Depends(get_database_ma
                 tasks_list.append(task_info)
                 logger.info(f"Converted task {task.task_id} to TaskInfo with status: {task_info.status}")
             except (AttributeError, TypeError, ValueError) as task_error:
-                logger.error(f"Error converting task {task.task_id} to TaskInfo: {task_error}", exc_info=True)
+                log_event(logger, logging.ERROR, "Error converting task to TaskInfo", task_id=task.task_id, error=task_error)
+                logger.debug("TaskInfo conversion traceback", exc_info=True)
                 # Skip this task and continue with others
                 continue
 
@@ -725,7 +734,8 @@ def get_failed_tasks(database_manager: DatabaseManager = Depends(get_database_ma
         return tasks_list
 
     except Exception as e:  # Broad catch intentional: API endpoint error logging before re-raise
-        logger.error(f"Error in get_failed_tasks: {e}", exc_info=True)
+        log_event(logger, logging.ERROR, "Error in get_failed_tasks", error=e)
+        logger.debug("get_failed_tasks traceback", exc_info=True)
         raise
 
 
