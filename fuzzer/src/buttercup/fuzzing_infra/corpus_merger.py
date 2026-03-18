@@ -62,7 +62,14 @@ class FinalCorpus:
                 n += 1
             except OSError as e:
                 # Ignore this as we will get a new chance next time the merger runs
-                log_event(logger, logging.ERROR, "Error removing file from local corpus", file_path=file, corpus=self._corpus.path, error=e)
+                log_event(
+                    logger,
+                    logging.ERROR,
+                    "Error removing file from local corpus",
+                    file_path=file,
+                    corpus=self._corpus.path,
+                    error=e,
+                )
         self._delete_locally.clear()
         return n
 
@@ -93,7 +100,13 @@ class PartitionedCorpus:
                 if len(new_local_only_files) >= self.max_local_files:
                     break
             except OSError as e:
-                log_event(logger, logging.ERROR, "Error copying file to local directory; will be ignored in merge", file_path=file, error=e)
+                log_event(
+                    logger,
+                    logging.ERROR,
+                    "Error copying file to local directory; will be ignored in merge",
+                    file_path=file,
+                    error=e,
+                )
 
         # These are the files that will be processed in the merge operation,
         # as we have limited the number of files to process to max_local_files.

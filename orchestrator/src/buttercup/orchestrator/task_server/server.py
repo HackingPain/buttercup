@@ -353,7 +353,7 @@ def get_readyz() -> dict[str, str]:
     try:
         r = get_redis()
         r.ping()
-    except Exception:
+    except Exception:  # Broad catch intentional: readiness probe must catch any Redis failure
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Redis is not available")
     return {"status": "ok"}
 

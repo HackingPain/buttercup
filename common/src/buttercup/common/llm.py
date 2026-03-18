@@ -89,7 +89,7 @@ def retry_llm[**P, T](
                 for attempt in range(max_retries + 1):
                     try:
                         return await func(*args, **kwargs)  # type: ignore[no-any-return]
-                    except Exception as exc:
+                    except Exception as exc:  # Broad catch intentional: retry decorator filters via _is_retryable
                         if not _is_retryable(exc) or attempt == max_retries:
                             raise
                         last_exc = exc
@@ -114,7 +114,7 @@ def retry_llm[**P, T](
             for attempt in range(max_retries + 1):
                 try:
                     return func(*args, **kwargs)
-                except Exception as exc:
+                except Exception as exc:  # Broad catch intentional: retry decorator filters via _is_retryable
                     if not _is_retryable(exc) or attempt == max_retries:
                         raise
                     last_exc = exc
