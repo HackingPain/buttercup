@@ -10,6 +10,7 @@ from redis import Redis
 
 from buttercup.common import node_local
 from buttercup.common.constants import CORPUS_DIR_NAME, CRASH_DIR_NAME
+from buttercup.common.logger import log_event
 from buttercup.common.sets import MergedCorpusSet
 
 logger = logging.getLogger(__name__)
@@ -79,14 +80,17 @@ class InputDir:
         try:
             (self.path / file).unlink()
         except OSError as e:
-            logger.error(f"Error removing file {file} from local corpus {self.path}: {e}")
+            log_event(logger, logging.ERROR, "Error removing file from local corpus", file_path=file, corpus=self.path, error=e)
 
     def remove_file(self, file: str) -> None:
         self.remove_local_file(file)
         try:
             (self.remote_path / file).unlink()
         except OSError as e:
-            logger.error(f"Error removing file {file} from remote corpus {self.remote_path}: {e}")
+            log_event(
+                logger, logging.ERROR, "Error removing file from remote corpus",
+                file_path=file, corpus=self.remote_path, error=e,
+            )
 
     @classmethod
     def has_hashed_name(cls, filename: str | Path) -> bool:
@@ -231,6 +235,6 @@ class Corpus(InputDir):
                 try:
                     self.remove_local_file(file)
                 except OSError as e:
-                    logger.error(f"Error removing file {file} from local corpus {self.path}: {e}")
+                    log_event(logger, logging.ERROR, "Error removing file from local corpus", file_path=file, corpus=self.path, error=e)
         if removed > 0:
             logger.info(f"Removed {removed} files from local corpus {self.path}")

@@ -115,6 +115,7 @@ class VulnBaseTask(Task):
     def _analyze_bug(self, state: BaseTaskState) -> Command:
         """Get context"""
 
+    @retry_llm(max_retries=3, base_delay=1.0, max_delay=60.0)
     def _analyze_bug_base(
         self,
         system_prompt: str,
@@ -137,6 +138,7 @@ class VulnBaseTask(Task):
     def _write_pov(self, state: BaseTaskState) -> Command:
         """Write PoV functions for the vulnerability"""
 
+    @retry_llm(max_retries=3, base_delay=1.0, max_delay=60.0)
     def _write_pov_base(
         self,
         system_prompt: str,

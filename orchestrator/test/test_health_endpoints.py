@@ -83,6 +83,9 @@ def test_task_server_readyz_redis_down(mock_get_redis: MagicMock, ts_client: Tes
 # UI Competition API health endpoints
 # ---------------------------------------------------------------------------
 
+# Patch the UI Settings class before importing the app to avoid cli_parse_args conflicts
+monkeypatch.setattr("buttercup.orchestrator.ui.config.Settings", MagicMock)
+
 from buttercup.orchestrator.ui.competition_api.main import app as ui_app  # noqa: E402
 from buttercup.orchestrator.ui.competition_api.main import get_database_manager  # noqa: E402
 
@@ -100,17 +103,16 @@ def test_ui_healthz(ui_client: TestClient) -> None:
     assert response.json() == {"status": "ok"}
 
 
-def test_ui_readyz_ok(ui_client: TestClient) -> None:
+@patch("buttercup.orchestrator.ui.competition_api.main.get_database_manager")
+def test_ui_readyz_ok(mock_get_db: MagicMock, ui_client: TestClient) -> None:
     """GET /readyz should return 200 when the database is reachable."""
     mock_db = MagicMock()
     mock_db.get_all_tasks.return_value = []
-    ui_app.dependency_overrides[get_database_manager] = lambda: mock_db
+    mock_get_db.return_value = mock_db
 
     response = ui_client.get("/readyz")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
-
-    ui_app.dependency_overrides.pop(get_database_manager, None)
 
 
 @patch("buttercup.orchestrator.ui.competition_api.main.get_database_manager")

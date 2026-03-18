@@ -136,7 +136,7 @@ class SeedExploreTask(SeedBaseTask):
                 function_snippet.file_path,
             )
             self.generate_seeds(harness, function_snippet, output_dir)
-        except Exception as err:
+        except Exception as err:  # Broad catch intentional: LLM-driven seed generation can fail in many ways
             logger.exception(
                 "Failed seed-explore for challenge %s: %s",
                 self.package_name,

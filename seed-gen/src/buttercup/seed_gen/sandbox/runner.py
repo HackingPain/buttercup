@@ -36,7 +36,7 @@ def exec_seed_funcs(seed_func_path: Path, output_dir: Path) -> None:
             path = output_dir / filename
             with open(path, "wb") as f:
                 f.write(seed)
-        except Exception as e:
+        except Exception as e:  # Broad catch intentional: executing LLM-generated code
             logging.exception(f"Error occurred: {e}")
 
 

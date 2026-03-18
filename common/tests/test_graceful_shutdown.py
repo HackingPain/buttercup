@@ -1,6 +1,5 @@
 """Tests for GracefulShutdown and graceful shutdown integration in serve loops."""
 
-import asyncio
 import signal
 import threading
 import time

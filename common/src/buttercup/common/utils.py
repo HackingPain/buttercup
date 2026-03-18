@@ -2,8 +2,8 @@ import asyncio
 import errno
 import logging
 import os
-import signal
 import shutil
+import signal
 import threading
 import time
 from collections.abc import Callable, Coroutine
@@ -37,8 +37,8 @@ class GracefulShutdown:
 
     def __init__(self) -> None:
         self._shutdown_event = threading.Event()
-        self._original_sigterm: signal.Handlers | None = None
-        self._original_sigint: signal.Handlers | None = None
+        self._original_sigterm: Any = None
+        self._original_sigint: Any = None
         self._handlers_installed = False
 
     @property
