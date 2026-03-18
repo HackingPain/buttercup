@@ -4,6 +4,7 @@ import argparse
 import json
 import sys
 import time
+import urllib.error
 import urllib.request
 from typing import Any
 
@@ -363,7 +364,7 @@ def submit_task(task_name: str, **kwargs: Any) -> None:
             if response.status != 200:
                 print(f"Response text: {response_data}")
 
-    except Exception as e:
+    except (urllib.error.URLError, OSError, ValueError) as e:
         print(f"Error submitting task: {e}")
 
 
