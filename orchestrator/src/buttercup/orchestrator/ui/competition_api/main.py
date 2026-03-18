@@ -706,7 +706,7 @@ def get_failed_tasks(database_manager: DatabaseManager = Depends(get_database_ma
 
         return tasks_list
 
-    except Exception as e:
+    except Exception as e:  # Broad catch intentional: API endpoint error logging before re-raise
         logger.error(f"Error in get_failed_tasks: {e}", exc_info=True)
         raise
 
@@ -1246,7 +1246,7 @@ def get_tarball(
     """Serve tarball files for CRS download"""
     try:
         return challenge_service.serve_tarball(tarball_name)
-    except Exception as e:
+    except (OSError, ValueError) as e:
         logger.error(f"Error serving tarball {tarball_name}: {e}")
         raise
 
