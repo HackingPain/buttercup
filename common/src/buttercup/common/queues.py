@@ -12,6 +12,8 @@ from typing import Any, Generic, Literal, TypeVar, cast, overload
 from google.protobuf.message import Message
 from redis import Redis, RedisError
 
+from buttercup.common.redis_pool import get_redis_client
+
 from buttercup.common.datastructures.msg_pb2 import (
     BuildOutput,
     BuildRequest,
@@ -444,3 +446,22 @@ class QueueFactory:
 
         queue_args.update(kwargs)
         return ReliableQueue(**queue_args)  # type: ignore[arg-type]
+
+
+def create_queue_factory(**redis_kwargs: Any) -> QueueFactory:
+    """Create a :class:`QueueFactory` backed by the shared Redis connection pool.
+
+    This is the recommended way to obtain a ``QueueFactory`` instance.  It uses
+    :func:`buttercup.common.redis_pool.get_redis_client` so that all queues
+    within the process share connections.
+
+    Args:
+        **redis_kwargs: Optional overrides forwarded to
+            :func:`~buttercup.common.redis_pool.get_redis_client` (e.g.
+            ``host``, ``port``, ``db``).
+
+    Returns:
+        A :class:`QueueFactory` using the shared pool.
+    """
+    client = get_redis_client(**redis_kwargs)
+    return QueueFactory(redis=client)

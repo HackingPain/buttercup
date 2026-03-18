@@ -46,11 +46,13 @@ from buttercup.orchestrator.task_server.backend import (
 from buttercup.orchestrator.task_server.config import TaskServerSettings
 from buttercup.orchestrator.task_server.dependencies import (
     get_delete_task_queue,
+    get_redis,
     get_sarif_store,
     get_settings,
     get_task_queue,
 )
 from buttercup.orchestrator.task_server.models.types import SARIFBroadcast, Status, StatusState, Task
+from buttercup.orchestrator.task_server.rate_limit import RateLimitMiddleware, RateLimitStore
 
 # Current API version identifier. Bump this when releasing a new version of the API.
 API_VERSION = "v1"
@@ -73,6 +75,19 @@ app = FastAPI(
     version=__version__,
     servers=[{"url": "/"}],
     log_config=None,
+)
+
+# ---------------------------------------------------------------------------
+# Rate limiting
+# ---------------------------------------------------------------------------
+rate_limit_store = RateLimitStore(
+    general_limit=settings.rate_limit_general,
+    heavy_limit=settings.rate_limit_heavy,
+)
+app.add_middleware(
+    RateLimitMiddleware,
+    store=rate_limit_store,
+    enabled=settings.rate_limit_enabled,
 )
 
 # The exposed endpoints must be authenticated using HTTP Basic.
@@ -326,6 +341,23 @@ app.include_router(legacy_v1_router)
 # ---------------------------------------------------------------------------
 # Version discovery endpoint (unauthenticated)
 # ---------------------------------------------------------------------------
+@app.get("/healthz", tags=["health"])
+def get_healthz() -> dict[str, str]:
+    """Liveness probe. Always returns 200 to indicate the process is alive."""
+    return {"status": "ok"}
+
+
+@app.get("/readyz", tags=["health"])
+def get_readyz() -> dict[str, str]:
+    """Readiness probe. Returns 200 if Redis is reachable, 503 otherwise."""
+    try:
+        r = get_redis()
+        r.ping()
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Redis is not available")
+    return {"status": "ok"}
+
+
 @app.get("/api/version", tags=["version"])
 def get_api_version() -> dict[str, str]:
     """Return the current API version and application version.

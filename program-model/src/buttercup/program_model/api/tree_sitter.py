@@ -340,7 +340,7 @@ class CodeTS:
             self.query = self.language.query(query_str)
             self.query_types = self.language.query(types_query_str)
             self.query_class_members = self.language.query(query_class_members) if query_class_members else None
-        except Exception:
+        except (ValueError, RuntimeError):
             raise ValueError("Query string is invalid")
 
         self.preprocess_keywords = ["ifdef", "ifndef", "if", "else", "elif", "endif"]
@@ -383,7 +383,7 @@ class CodeTS:
                 name_node = capture_name["function.name"][0]
                 body_node = capture_name["function.body"][0]
                 is_macro = True if "macro.call" in capture_name else False
-            except Exception:
+            except (KeyError, IndexError):
                 continue
 
             function_name = code[name_node.start_byte : name_node.end_byte]
@@ -463,7 +463,7 @@ class CodeTS:
             try:
                 name_node = match[1]["type.name"][0]
                 definition_node = match[1]["type.definition"][0]
-            except Exception:
+            except (KeyError, IndexError):
                 continue
 
             # Walk back to include any comments right before the definition

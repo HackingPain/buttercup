@@ -18,6 +18,11 @@ class TaskServerSettings(BaseSettings):
     api_key_id: Annotated[str, Field(default="", description="API key ID for authentication")]
     api_token_hash: Annotated[str, Field(default="", description="Argon2id hash of the API token")]
 
+    # Rate limiting configuration
+    rate_limit_enabled: Annotated[bool, Field(default=True, description="Enable rate limiting")]
+    rate_limit_general: Annotated[int, Field(default=60, description="Max requests per minute for general endpoints")]
+    rate_limit_heavy: Annotated[int, Field(default=10, description="Max requests per minute for heavy endpoints")]
+
     # Competition API configuration
     competition_api_url: Annotated[str, Field(default="http://localhost:1323", description="Competition API URL")]
     competition_api_username: Annotated[str, Field(default="", description="Competition API username")]

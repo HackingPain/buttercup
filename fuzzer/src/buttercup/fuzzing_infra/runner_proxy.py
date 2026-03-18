@@ -51,7 +51,7 @@ class RunnerProxy:
                 process.wait(timeout=self._timeout)
             except subprocess.TimeoutExpired:
                 logger.error("Process did not terminate after kill within 5 seconds")
-        except Exception as e:
+        except OSError as e:
             logger.error(f"Error killing process: {e}")
 
     def _kill_process_group(self, process: subprocess.Popen) -> None:
@@ -121,13 +121,13 @@ class RunnerProxy:
                     "status": "failed",
                     "error": f"Failed to parse JSON output: {parse_error}",
                 }
-            except Exception as parse_error:
+            except (UnicodeDecodeError, ValueError) as parse_error:
                 logger.error(f"Failed to parse subprocess output for task {task_type}: {parse_error}")
                 return {
                     "status": "failed",
                     "error": f"Failed to parse output: {parse_error}",
                 }
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError) as e:
             logger.error(f"Failed to start subprocess for task {task_type}: {e}")
             return {
                 "status": "failed",
@@ -156,7 +156,7 @@ class RunnerProxy:
             ]
 
             result = self._run_subprocess_task(cmd, runner_timeout, "fuzz")
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError) as e:
             logger.exception(f"Fuzzer task {conf.engine} | {conf.sanitizer} | {conf.target_path} failed: {str(e)}")
             result = {
                 "status": "failed",
@@ -188,7 +188,7 @@ class RunnerProxy:
             ]
 
             self._run_subprocess_task(cmd, runner_timeout, "merge")
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError) as e:
             logger.exception(
                 f"Merge corpus task {conf.engine} | {conf.sanitizer} | {conf.target_path} failed: {str(e)}"
             )

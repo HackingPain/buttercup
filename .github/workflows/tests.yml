@@ -13,10 +13,12 @@ concurrency:
 
 jobs:
   test:
+    name: test (${{ matrix.component }}, py${{ matrix.python }})
     strategy:
       fail-fast: false  # Continue running other components even if one fails
       matrix:
         include:
+          # Python 3.12 — primary, required to pass
           - component: common
             coverage_module: buttercup.common
             python: "3.12"
@@ -35,8 +37,35 @@ jobs:
           - component: fuzzer
             coverage_module: buttercup.fuzzer
             python: "3.12"
+          # Python 3.13 — experimental/informational, failures do not block PRs
+          - component: common
+            coverage_module: buttercup.common
+            python: "3.13"
+            experimental: true
+          - component: orchestrator
+            coverage_module: buttercup.orchestrator
+            python: "3.13"
+            experimental: true
+          - component: program-model
+            coverage_module: buttercup.program_model
+            python: "3.13"
+            experimental: true
+          - component: seed-gen
+            coverage_module: buttercup.seed_gen
+            python: "3.13"
+            experimental: true
+          - component: patcher
+            coverage_module: buttercup.patcher
+            python: "3.13"
+            experimental: true
+          - component: fuzzer
+            coverage_module: buttercup.fuzzer
+            python: "3.13"
+            experimental: true
 
     runs-on: ubuntu-latest
+    # Allow Python 3.13 jobs to fail without blocking the workflow
+    continue-on-error: ${{ matrix.experimental || false }}
     # Removed if: matrix.should_run since we're not using path filtering right now
     services:
       redis:
@@ -55,8 +84,10 @@ jobs:
           persist-credentials: false
           submodules: true
 
-      - name: Install uv
+      - name: Install uv and Python ${{ matrix.python }}
         uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python }}
 
       - name: Setup uv cache
         uses: actions/cache@v4
@@ -64,10 +95,10 @@ jobs:
           path: |
             ~/.cache/uv
             ~/.local/share/uv
-          key: ${{ runner.os }}-uv-${{ matrix.component }}-${{ hashFiles(format('{0}/uv.lock', matrix.component)) }}
+          key: ${{ runner.os }}-uv-py${{ matrix.python }}-${{ matrix.component }}-${{ hashFiles(format('{0}/uv.lock', matrix.component)) }}
           restore-keys: |
-            ${{ runner.os }}-uv-${{ matrix.component }}-
-            ${{ runner.os }}-uv-
+            ${{ runner.os }}-uv-py${{ matrix.python }}-${{ matrix.component }}-
+            ${{ runner.os }}-uv-py${{ matrix.python }}-
 
       - name: Download Wasm runtime
         run: wget https://github.com/vmware-labs/webassembly-language-runtimes/releases/download/python%2F3.12.0%2B20231211-040d5a6/python-3.12.0.wasm

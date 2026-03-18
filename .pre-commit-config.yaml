@@ -32,6 +32,14 @@ repos:
         types_or: [python, pyi]
         args: [--fix, --exit-non-zero-on-fix]
 
+  # Secrets detection
+  # To generate/update the baseline: detect-secrets scan > .secrets.baseline
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: ['--baseline', '.secrets.baseline']
+
 # Global exclusions for files that should never be checked
 exclude: |
   (?x)^(

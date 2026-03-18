@@ -125,7 +125,7 @@ class FuzzyCImportsResolver:
             self.direct_imports_cache[file_path] = imports
             return imports
 
-        except Exception as e:
+        except (OSError, ValueError) as e:
             print(f"Error parsing {file_path}: {e}")
             return set()
 

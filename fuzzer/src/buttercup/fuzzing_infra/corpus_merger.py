@@ -12,7 +12,7 @@ from opentelemetry.trace import Status, StatusCode
 from redis import Redis
 
 from buttercup.common import node_local
-from buttercup.common.challenge_task import ChallengeTask
+from buttercup.common.challenge_task import ChallengeTask, ChallengeTaskError
 from buttercup.common.constants import ADDRESS_SANITIZER
 from buttercup.common.corpus import Corpus
 from buttercup.common.datastructures.aliases import BuildType as BuildTypeHint
@@ -325,7 +325,7 @@ class MergerBot:
                             partitioned_corpus.remote_files,
                             corp,
                         )
-                    except (subprocess.SubprocessError, OSError) as e:
+                    except (ChallengeTaskError, OSError) as e:
                         logger.error(f"Error during merge operation: {e}")
                         raise e
 
@@ -350,7 +350,7 @@ class MergerBot:
             logger.debug(
                 f"Skipping merge for {task.harness_name} | {task.package_name} | {task.task_id} because another worker is already merging",  # noqa: E501
             )
-        except Exception as e:
+        except (ChallengeTaskError, OSError) as e:
             logger.error(f"Error merging corpus: {e}")
             raise e
 
@@ -373,7 +373,7 @@ class MergerBot:
             try:
                 if self.run_task(item, builds):
                     did_work = True
-            except Exception as e:
+            except (ChallengeTaskError, OSError) as e:
                 n_exceptions += 1
                 logger.error(f"Error running task: {e}")
                 if n_exceptions > 1:
