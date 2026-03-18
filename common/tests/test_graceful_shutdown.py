@@ -1,5 +1,6 @@
 """Tests for GracefulShutdown and graceful shutdown integration in serve loops."""
 
+import asyncio
 import signal
 import threading
 import time
@@ -171,8 +172,7 @@ class TestAsyncServeLoopGracefulShutdown:
         handler._shutdown_event.clear()
         handler.restore_signal_handlers()
 
-    @pytest.mark.asyncio
-    async def test_async_serve_loop_exits_on_shutdown(self) -> None:
+    def test_async_serve_loop_exits_on_shutdown(self) -> None:
         call_count = 0
         handler = get_shutdown_handler()
 
@@ -183,11 +183,13 @@ class TestAsyncServeLoopGracefulShutdown:
                 handler.request_shutdown()
             return True
 
-        await async_serve_loop(work, sleep_time=0.01)
+        async def run() -> None:
+            await async_serve_loop(work, sleep_time=0.01)
+
+        asyncio.run(run())
         assert call_count == 3
 
-    @pytest.mark.asyncio
-    async def test_async_serve_loop_skips_sleep_on_shutdown(self) -> None:
+    def test_async_serve_loop_skips_sleep_on_shutdown(self) -> None:
         handler = get_shutdown_handler()
         call_count = 0
 
@@ -197,22 +199,24 @@ class TestAsyncServeLoopGracefulShutdown:
             handler.request_shutdown()
             return False
 
+        async def run() -> None:
+            await async_serve_loop(work, sleep_time=5.0)
+
         start = time.time()
-        await async_serve_loop(work, sleep_time=5.0)
+        asyncio.run(run())
         elapsed = time.time() - start
 
         assert call_count == 1
         assert elapsed < 2.0
 
-    @pytest.mark.asyncio
-    async def test_async_serve_loop_validation(self) -> None:
+    def test_async_serve_loop_validation(self) -> None:
         async def noop() -> bool:
             return True
 
         with pytest.raises(ValueError, match="sleep_time"):
-            await async_serve_loop(noop, sleep_time=-1)
+            asyncio.run(async_serve_loop(noop, sleep_time=-1))
         with pytest.raises(ValueError, match="report_time"):
-            await async_serve_loop(noop, report_time=-1)
+            asyncio.run(async_serve_loop(noop, report_time=-1))
 
 
 class TestModuleLevelHelpers:

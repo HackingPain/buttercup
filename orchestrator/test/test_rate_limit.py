@@ -113,10 +113,18 @@ app.dependency_overrides[get_delete_task_queue] = lambda: mock_delete_task_queue
 
 @pytest.fixture(autouse=True)
 def _reset_rate_limits() -> Generator[None, None, None]:
-    """Reset rate limit state before each test."""
+    """Reset rate limit state and restore default limits before each test."""
+    rate_limit_store.general_limit = 60
+    rate_limit_store.heavy_limit = 10
     rate_limit_store.reset()
+    rate_limit_store._general.default_factory = lambda: _TokenBucket(capacity=60)  # type: ignore[assignment]
+    rate_limit_store._heavy.default_factory = lambda: _TokenBucket(capacity=10)  # type: ignore[assignment]
     yield
+    rate_limit_store.general_limit = 60
+    rate_limit_store.heavy_limit = 10
     rate_limit_store.reset()
+    rate_limit_store._general.default_factory = lambda: _TokenBucket(capacity=60)  # type: ignore[assignment]
+    rate_limit_store._heavy.default_factory = lambda: _TokenBucket(capacity=10)  # type: ignore[assignment]
 
 
 @pytest.fixture

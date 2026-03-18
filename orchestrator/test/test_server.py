@@ -48,13 +48,21 @@ settings = TestSettings()
 monkeypatch.setattr("buttercup.orchestrator.task_server.dependencies.get_settings", lambda: settings)
 
 from buttercup.orchestrator.task_server.dependencies import get_delete_task_queue, get_task_queue  # noqa: E402
-from buttercup.orchestrator.task_server.server import app  # noqa: E402
+from buttercup.orchestrator.task_server.server import app, rate_limit_store  # noqa: E402
 
 # Create mock queue and override FastAPI dependency
 mock_tasks_queue = MagicMock()
 mock_delete_task_queue = MagicMock()
 app.dependency_overrides[get_task_queue] = lambda: mock_tasks_queue
 app.dependency_overrides[get_delete_task_queue] = lambda: mock_delete_task_queue
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limits() -> Generator[None, None, None]:
+    """Reset rate limit state before each test so limits don't carry over."""
+    rate_limit_store.reset()
+    yield
+    rate_limit_store.reset()
 
 
 @pytest.fixture

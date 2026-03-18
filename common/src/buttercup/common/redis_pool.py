@@ -84,13 +84,17 @@ def get_redis_connection_pool(
     """
     global _pool  # noqa: PLW0603
 
-    if _pool is not None:
-        return _pool
+    # Fast path: pool already created (no lock needed)
+    current = _pool
+    if current is not None:
+        return current
 
     with _pool_lock:
-        # Double-checked locking
-        if _pool is not None:
-            return _pool
+        # Double-checked locking: another thread may have created the pool
+        # while we were waiting for the lock.
+        current = _pool
+        if current is not None:
+            return current
 
         resolved_host = host if host is not None else _env_str("REDIS_HOST", "localhost")
         resolved_port = port if port is not None else _env_int("REDIS_PORT", 6379)

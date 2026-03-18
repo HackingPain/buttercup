@@ -34,7 +34,7 @@ class _TaskServerSettings:
 _ts_settings = _TaskServerSettings()
 monkeypatch.setattr("buttercup.orchestrator.task_server.dependencies.get_settings", lambda: _ts_settings)
 
-from buttercup.orchestrator.task_server.dependencies import get_delete_task_queue, get_redis, get_task_queue  # noqa: E402
+from buttercup.orchestrator.task_server.dependencies import get_delete_task_queue, get_task_queue  # noqa: E402
 from buttercup.orchestrator.task_server.server import app as task_server_app  # noqa: E402
 
 mock_tasks_queue = MagicMock()
@@ -87,7 +87,6 @@ def test_task_server_readyz_redis_down(mock_get_redis: MagicMock, ts_client: Tes
 monkeypatch.setattr("buttercup.orchestrator.ui.config.Settings", MagicMock)
 
 from buttercup.orchestrator.ui.competition_api.main import app as ui_app  # noqa: E402
-from buttercup.orchestrator.ui.competition_api.main import get_database_manager  # noqa: E402
 
 
 @pytest.fixture

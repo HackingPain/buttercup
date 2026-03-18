@@ -19,7 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from redis import Redis
 
 from buttercup.common.challenge_task import ChallengeTask
-from buttercup.common.llm import ButtercupLLM, create_default_llm, get_langfuse_callbacks
+from buttercup.common.llm import ButtercupLLM, create_default_llm, get_langfuse_callbacks, retry_llm
 from buttercup.common.project_yaml import ProjectYaml
 from buttercup.program_model.codequery import CodeQueryPersistent
 from buttercup.program_model.utils.common import Function, TypeDefinition
@@ -225,6 +225,7 @@ class Task:
         )
         return None
 
+    @retry_llm(max_retries=3, base_delay=1.0, max_delay=60.0)
     def _generate_python_funcs_base(
         self,
         system_prompt: str,

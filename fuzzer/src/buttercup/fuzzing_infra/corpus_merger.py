@@ -17,7 +17,7 @@ from buttercup.common.constants import ADDRESS_SANITIZER
 from buttercup.common.corpus import Corpus
 from buttercup.common.datastructures.aliases import BuildType as BuildTypeHint
 from buttercup.common.datastructures.msg_pb2 import BuildOutput, BuildType, WeightedHarness
-from buttercup.common.logger import setup_package_logger
+from buttercup.common.logger import log_event, setup_package_logger
 from buttercup.common.maps import BuildMap, HarnessWeights
 from buttercup.common.sets import MERGING_LOCK_TIMEOUT_SECONDS, FailedToAcquireLock, MergedCorpusSetLock
 from buttercup.common.telemetry import CRSActionCategory, init_telemetry, set_crs_attributes
@@ -62,7 +62,7 @@ class FinalCorpus:
                 n += 1
             except OSError as e:
                 # Ignore this as we will get a new chance next time the merger runs
-                logger.error(f"Error removing file {file} from local corpus {self._corpus.path}: {e}")
+                log_event(logger, logging.ERROR, "Error removing file from local corpus", file_path=file, corpus=self._corpus.path, error=e)
         self._delete_locally.clear()
         return n
 
@@ -93,7 +93,7 @@ class PartitionedCorpus:
                 if len(new_local_only_files) >= self.max_local_files:
                     break
             except OSError as e:
-                logger.error(f"Error copying file {file} to local directory: {e}. Will be ignored in merge.")
+                log_event(logger, logging.ERROR, "Error copying file to local directory; will be ignored in merge", file_path=file, error=e)
 
         # These are the files that will be processed in the merge operation,
         # as we have limited the number of files to process to max_local_files.
@@ -326,7 +326,7 @@ class MergerBot:
                             corp,
                         )
                     except (ChallengeTaskError, OSError) as e:
-                        logger.error(f"Error during merge operation: {e}")
+                        log_event(logger, logging.ERROR, "Error during merge operation", error=e)
                         raise e
 
                     # Create FinalCorpus which represents the state after the merge
@@ -351,7 +351,7 @@ class MergerBot:
                 f"Skipping merge for {task.harness_name} | {task.package_name} | {task.task_id} because another worker is already merging",  # noqa: E501
             )
         except (ChallengeTaskError, OSError) as e:
-            logger.error(f"Error merging corpus: {e}")
+            log_event(logger, logging.ERROR, "Error merging corpus", error=e)
             raise e
 
         return False  # We did not do any work
@@ -375,7 +375,7 @@ class MergerBot:
                     did_work = True
             except (ChallengeTaskError, OSError) as e:
                 n_exceptions += 1
-                logger.error(f"Error running task: {e}")
+                log_event(logger, logging.ERROR, "Error running task", error=e)
                 if n_exceptions > 1:
                     # The assumption is that a single exception is due to a temporary issue, where as multiple
                     # exceptions are due to a more serious issue and we should restart the bot.

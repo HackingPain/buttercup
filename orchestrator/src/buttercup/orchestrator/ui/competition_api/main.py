@@ -631,7 +631,7 @@ def get_readyz() -> dict[str, str]:
         db = get_database_manager()
         # Execute a lightweight query to verify database connectivity
         db.get_all_tasks()
-    except Exception:
+    except Exception:  # Broad catch intentional: readiness probe must catch any DB failure
         raise HTTPException(status_code=503, detail="Database is not available")
     return {"status": "ok"}
 

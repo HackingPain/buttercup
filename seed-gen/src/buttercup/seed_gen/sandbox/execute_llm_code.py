@@ -45,7 +45,7 @@ def wasm_run_script(root_dir: Path, script_path: Path, script_args: list[str]) -
     start = instance.exports(store)["_start"]
     try:
         start(store)  # type: ignore[operator]
-    except Exception as e:
+    except Exception as e:  # Broad catch intentional: WASI VM execution can raise various errors
         logging.exception(e)
         raise e
 
