@@ -443,7 +443,7 @@ def task_to_task_info(task: Task) -> TaskInfo:
         }
 
         return TaskInfo(**task_data)
-    except Exception as e:
+    except (AttributeError, TypeError, ValueError) as e:
         logger.error(f"Error in task_to_task_info for task {getattr(task, 'task_id', 'unknown')}: {e}", exc_info=True)
         raise
 
@@ -535,7 +535,7 @@ def _create_task(
             color="error",
         )
 
-    except Exception as e:
+    except Exception as e:  # Broad catch intentional: task creation involves many subsystems
         logger.error(f"Error creating task for challenge {challenge.name}: {e}")
 
         # Create a failed task in the database even when the challenge service fails
