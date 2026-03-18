@@ -93,16 +93,26 @@ jobs:
     needs: [changes, matrix-generator]
     strategy:
       fail-fast: false # Continue running other components even if one fails
-      matrix: ${{ fromJSON(needs.matrix-generator.outputs.matrix) }}
+      matrix:
+        component: ${{ fromJSON(needs.matrix-generator.outputs.matrix).component }}
+        python:
+          - "3.12"
+          # Python 3.13 — experimental/informational, failures do not block PRs
+          - "3.13"
 
     runs-on: ubuntu-latest
+    # Allow Python 3.13 jobs to fail without blocking the workflow
+    continue-on-error: ${{ matrix.python == '3.13' }}
+    name: lint (${{ matrix.component }}, py${{ matrix.python }})
     steps:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
 
-      - name: Install uv
+      - name: Install uv and Python ${{ matrix.python }}
         uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python }}
 
       - name: Setup uv cache
         uses: actions/cache@v4
@@ -110,10 +120,10 @@ jobs:
           path: |
             ~/.cache/uv
             ~/.local/share/uv
-          key: ${{ runner.os }}-uv-${{ matrix.component }}-${{ hashFiles(format('{0}/uv.lock', matrix.component)) }}
+          key: ${{ runner.os }}-uv-py${{ matrix.python }}-${{ matrix.component }}-${{ hashFiles(format('{0}/uv.lock', matrix.component)) }}
           restore-keys: |
-            ${{ runner.os }}-uv-${{ matrix.component }}-
-            ${{ runner.os }}-uv-
+            ${{ runner.os }}-uv-py${{ matrix.python }}-${{ matrix.component }}-
+            ${{ runner.os }}-uv-py${{ matrix.python }}-
 
       - name: Setup ${{ matrix.component }} component
         run: uv sync --all-extras

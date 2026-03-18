@@ -618,6 +618,24 @@ def _create_sarif_broadcast(
     )
 
 
+@app.get("/healthz", tags=["health"])
+def get_healthz() -> dict[str, str]:
+    """Liveness probe. Always returns 200 to indicate the process is alive."""
+    return {"status": "ok"}
+
+
+@app.get("/readyz", tags=["health"])
+def get_readyz() -> dict[str, str]:
+    """Readiness probe. Returns 200 if the database is reachable, 503 otherwise."""
+    try:
+        db = get_database_manager()
+        # Execute a lightweight query to verify database connectivity
+        db.get_all_tasks()
+    except Exception:
+        raise HTTPException(status_code=503, detail="Database is not available")
+    return {"status": "ok"}
+
+
 @app.get("/v1/ping/", response_model=PingResponse, tags=["ping"])
 def get_v1_ping_() -> PingResponse:
     """Test authentication creds and network connectivity"""

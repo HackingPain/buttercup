@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from buttercup.common.logger import log_event
 from buttercup.common.types import FuzzConfiguration
 
 logger = logging.getLogger(__name__)
@@ -52,7 +53,7 @@ class RunnerProxy:
             except subprocess.TimeoutExpired:
                 logger.error("Process did not terminate after kill within 5 seconds")
         except OSError as e:
-            logger.error(f"Error killing process: {e}")
+            log_event(logger, logging.ERROR, "Error killing process", error=e)
 
     def _kill_process_group(self, process: subprocess.Popen) -> None:
         # Kill the entire process group
@@ -73,7 +74,7 @@ class RunnerProxy:
             else:  # Windows
                 self._kill_process(process)
         except (ProcessLookupError, OSError) as e:
-            logger.warning(f"Error killing process group: {e}")
+            log_event(logger, logging.WARNING, "Error killing process group", error=e)
             self._kill_process(process)
 
     def _run_subprocess_task(self, cmd: list[str], timeout: int, task_type: str) -> dict[str, Any]:
@@ -93,13 +94,13 @@ class RunnerProxy:
                 stdout, stderr = process.communicate(timeout=subprocess_timeout)
                 if process.returncode != 0:
                     error_msg = stderr.decode("utf-8") if stderr else "Unknown subprocess error"
-                    logger.error(f"{task_type} task failed: {error_msg}")
+                    log_event(logger, logging.ERROR, "Subprocess task failed", operation=task_type, error=error_msg)
                     return {
                         "status": "failed",
                         "error": f"Task failed: {error_msg}",
                     }
             except subprocess.TimeoutExpired:
-                logger.error(f"{task_type} task timed out after {subprocess_timeout} seconds")
+                log_event(logger, logging.ERROR, "Subprocess task timed out", operation=task_type, duration=subprocess_timeout)
                 if process.poll() is None:
                     self._kill_process_group(process)
 

@@ -97,6 +97,24 @@ class GracefulShutdown:
 _shutdown = GracefulShutdown()
 
 
+def get_shutdown_handler() -> GracefulShutdown:
+    """Return the module-level GracefulShutdown singleton.
+
+    Services can use this to check shutdown state or register additional
+    cleanup logic::
+
+        shutdown = get_shutdown_handler()
+        if shutdown.is_shutting_down:
+            # finish up
+    """
+    return _shutdown
+
+
+def is_shutting_down() -> bool:
+    """Convenience check for whether a graceful shutdown has been requested."""
+    return _shutdown.is_shutting_down
+
+
 def copyanything(src: PathLike, dst: PathLike, **kwargs: Any) -> None:
     """Copy a file or directory to a destination.
     This function will:

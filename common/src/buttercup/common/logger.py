@@ -18,11 +18,78 @@ except ImportError:
 
 import logging
 import tempfile
+from typing import Any
 
 from buttercup.common.telemetry import crs_instance_id, service_instance_id
 
 _is_initialized = False
 PACKAGE_LOGGER_NAME = "buttercup"
+
+# ---------------------------------------------------------------------------
+# Common structured logging field name constants
+# ---------------------------------------------------------------------------
+# Use these as keyword argument names when calling log_event() to ensure
+# consistent field naming across components.
+
+TASK_ID = "task_id"
+COMPONENT = "component"
+OPERATION = "operation"
+ERROR = "error"
+HARNESS = "harness"
+PACKAGE = "package"
+BUILD_TYPE = "build_type"
+SANITIZER = "sanitizer"
+ENGINE = "engine"
+TARGET = "target"
+FILE_PATH = "file_path"
+SUBMISSION_ID = "submission_id"
+BUNDLE_ID = "bundle_id"
+PATCH_ID = "patch_id"
+POV_ID = "pov_id"
+STATUS = "status"
+DURATION = "duration"
+
+
+def _format_value(value: Any) -> str:
+    """Format a single context value for structured log output.
+
+    Strings containing spaces or pipe characters are quoted so that the
+    ``key=value`` pairs remain unambiguous when parsed by log aggregators.
+    """
+    s = str(value)
+    if " " in s or "|" in s or "=" in s:
+        return f'"{s}"'
+    return s
+
+
+def log_event(logger: logging.Logger, level: int, message: str, **context: Any) -> None:
+    """Emit a structured log line in ``message | key1=value1 key2=value2`` format.
+
+    This helper encourages a consistent structured-logging style across all
+    Buttercup components.  The *message* should be a short, static description
+    of what happened (no f-string interpolation needed).  All variable data
+    belongs in *context* keyword arguments so that log aggregation and search
+    tools can parse them reliably.
+
+    Examples::
+
+        log_event(logger, logging.INFO, "Processing task",
+                  task_id=task.task_id, component="patcher")
+
+        log_event(logger, logging.ERROR, "Patch submission rejected",
+                  task_id=task_id, status=response.status, harness=patch)
+
+    Args:
+        logger: The :class:`logging.Logger` instance to use.
+        level: Numeric log level (e.g. ``logging.INFO``).
+        message: A short, human-readable description of the event.
+        **context: Arbitrary key-value pairs appended after the message.
+    """
+    if context:
+        pairs = " ".join(f"{k}={_format_value(v)}" for k, v in context.items())
+        logger.log(level, "%s | %s", message, pairs)
+    else:
+        logger.log(level, "%s", message)
 
 
 class MaxLengthFormatter(logging.Formatter):

@@ -92,7 +92,7 @@ class ProgramModel:
                 # Push it to the remote storage
                 node_local.dir_to_remote_archive(cqp.challenge.task_dir)
             return True
-        except Exception as e:
+        except Exception as e:  # Broad catch intentional: prevent event loop crash
             logger.exception(f"Failed to process task {args.task_id}: {e}")
             return False
 
