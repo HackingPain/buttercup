@@ -327,6 +327,7 @@ class SWEAgent(PatcherAgentBase):
     patch_strategy_chain: Runnable = field(init=False)
 
     MATCH_RATIO_THRESHOLD: float = 0.8
+    FUZZY_MATCH_THRESHOLD: float = 0.6
 
     def __post_init__(self) -> None:
         """Initialize a few fields"""
@@ -471,6 +472,61 @@ class SWEAgent(PatcherAgentBase):
 
         return code_snippet_key
 
+    def _fuzzy_find_old_code(self, old_code: str, orig_code_snippet: str) -> str | None:
+        """Use fuzzy matching to find the best-matching region in orig_code_snippet for old_code.
+
+        When the LLM-generated old_code doesn't exactly match (e.g., minor whitespace or
+        formatting differences), this attempts to locate the closest matching contiguous
+        block of lines in the original snippet. Returns the matched text from the original
+        if the similarity ratio exceeds FUZZY_MATCH_THRESHOLD, otherwise None.
+        """
+        old_lines = old_code.splitlines(keepends=True)
+        orig_lines = orig_code_snippet.splitlines(keepends=True)
+
+        if not old_lines or not orig_lines:
+            return None
+
+        matcher = difflib.SequenceMatcher(None, orig_lines, old_lines)
+        # Find the longest contiguous matching block
+        best_match = matcher.find_longest_match(0, len(orig_lines), 0, len(old_lines))
+
+        if best_match.size == 0:
+            return None
+
+        # Expand the match to cover the full range of old_lines by using get_matching_blocks
+        # and compute overall similarity
+        ratio = matcher.ratio()
+        if ratio < self.FUZZY_MATCH_THRESHOLD:
+            return None
+
+        # Use get_opcodes to reconstruct what region of orig_lines corresponds to old_lines
+        opcodes = matcher.get_opcodes()
+        # Determine the span in orig_lines that covers the matched region
+        orig_start = None
+        orig_end = None
+        for tag, i1, i2, _j1, _j2 in opcodes:
+            if tag in ("equal", "replace", "delete"):
+                if orig_start is None:
+                    orig_start = i1
+                orig_end = i2
+
+        if orig_start is None or orig_end is None:
+            return None
+
+        candidate = "".join(orig_lines[orig_start:orig_end])
+
+        # Final similarity check between the candidate and old_code
+        final_ratio = difflib.SequenceMatcher(None, candidate, old_code).ratio()
+        if final_ratio < self.FUZZY_MATCH_THRESHOLD:
+            return None
+
+        logger.info(
+            "Fuzzy matched old_code in original snippet (ratio=%.2f, final_ratio=%.2f)",
+            ratio,
+            final_ratio,
+        )
+        return candidate
+
     def _get_snippets_patch(
         self,
         code_snippet: CodeSnippetChange,
@@ -506,15 +562,23 @@ class SWEAgent(PatcherAgentBase):
         assert code_snippet.old_code, "The code snippet should be validated before, old_code should be present"
         assert code_snippet.code, "The code snippet should be validated before, code should be present"
         if code_snippet.old_code not in orig_code_snippet:
-            # TODO: use some fuzzy matching to try to apply the patch anyway
-            logger.warning(
-                "Could not generate a valid patch for %s (%d), old code snippet change not found in the original code snippet",
+            # Attempt fuzzy matching to handle minor LLM-introduced differences (whitespace, formatting)
+            fuzzy_match = self._fuzzy_find_old_code(code_snippet.old_code, orig_code_snippet)
+            if fuzzy_match is None:
+                logger.warning(
+                    "Could not generate a valid patch for %s (%d), old code snippet change not found in the original code snippet",
+                    code_snippet_key,
+                    idx,
+                )
+                return None
+            logger.info(
+                "Using fuzzy match for %s (%d) to apply patch",
                 code_snippet_key,
                 idx,
             )
-            return None
-
-        new_code_snippet = orig_code_snippet.replace(code_snippet.old_code, code_snippet.code)
+            new_code_snippet = orig_code_snippet.replace(fuzzy_match, code_snippet.code)
+        else:
+            new_code_snippet = orig_code_snippet.replace(code_snippet.old_code, code_snippet.code)
         file_content = file_content.replace(orig_code_snippet, new_code_snippet)
 
         # Use git diff to generate the patch properly

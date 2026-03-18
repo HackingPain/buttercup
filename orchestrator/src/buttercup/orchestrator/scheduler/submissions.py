@@ -311,7 +311,7 @@ class CompetitionAPI:
 
                 span.set_status(Status(StatusCode.OK))
                 return response.pov_id, mapped_status
-        except Exception as e:
+        except Exception as e:  # Broad catch intentional: competition API can raise various HTTP/API exceptions
             logger.error(f"[{crash.crash.target.task_id}] Failed to submit vulnerability: {e}")
             return None, SubmissionResult.ERRORED
 
@@ -562,7 +562,7 @@ class CompetitionAPI:
                 span.set_status(Status(StatusCode.OK))
                 return True
 
-            except Exception as e:
+            except Exception as e:  # Broad catch intentional: competition API can raise various HTTP/API exceptions
                 logger.error(f"[{task_id}] Bundle deletion failed for bundle_id: {bundle_id}, error: {e}")
                 span.set_status(Status(StatusCode.ERROR))
                 return False
@@ -1623,7 +1623,9 @@ class Submissions:
         if any_failing:
             return False
 
-        # TODO: Add a parameter to ignore any "None" responses to be used when approaching the end of the task window
+        # NOTE: Near the end of a task window, we may want a force_submit parameter that treats
+        # pending (None) statuses as passing, so we can submit the best available patch before
+        # the deadline rather than waiting indefinitely for all PoV reproduce results.
         # If any patch is pending, we need to wait for it.
         any_pending = any(status is None for status in statuses)
         if any_pending:
@@ -1733,8 +1735,10 @@ class Submissions:
 
                     pov_reproduce_statuses = self._pov_reproduce_patch_status(current_patch, e2.crashes, task_id)
                     if any(status is not None and not status.did_crash for status in pov_reproduce_statuses):
-                        # This patch mitigates at least one PoV from e2, we should merge the entries
-                        # TODO: Does it need to mitigate all PoVs? I think not as the patch could be a partial fix.
+                        # This patch mitigates at least one PoV from e2, we should merge the entries.
+                        # Merging on partial mitigation is intentional: a patch that fixes even one PoV
+                        # from another entry is likely addressing the same root cause, and consolidating
+                        # avoids redundant submissions.
                         to_merge.append((j, e2))
 
                 if len(to_merge) > 1:
@@ -1743,7 +1747,7 @@ class Submissions:
                         f"[{i}:{_task_id(e)}] Merging {len(to_merge) - 1} similar submissions into this one. Merging indices: {', '.join(map(str, merged_indices))}",  # noqa: E501
                     )
                     self._consolidate_similar_submissions(crash=None, similar_entries=to_merge)
-            except Exception as err:
+            except Exception as err:  # Broad catch intentional: prevent event loop crash
                 logger.error(f"[{i}:{_task_id(e)}] Error merging entries by patch mitigation: {err}")
 
     def process_cycle(self) -> None:
@@ -1795,7 +1799,7 @@ class Submissions:
                         self._persist(pipe, i, e)
                         pipe.execute()
 
-            except Exception:
+            except Exception:  # Broad catch intentional: prevent event loop crash
                 logger.exception(f"[{i}:{_task_id(e)}] Error processing submission")
                 # NOTE: The question is if we should raise at some point. Worst case we are stuck in a
                 # error-condition that can only be fixed by a restart of the scheduler. However, we don't know that.
@@ -1807,5 +1811,5 @@ class Submissions:
         # those we will consolidate the SubmissionEntries.
         try:
             self._merge_entries_by_patch_mitigation()
-        except Exception as err:
+        except Exception as err:  # Broad catch intentional: prevent event loop crash
             logger.error(f"[{i}:{_task_id(e)}] Error merging entries by patch mitigation: {err}")

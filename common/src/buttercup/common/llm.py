@@ -89,7 +89,7 @@ def get_langfuse_callbacks() -> list[BaseCallbackHandler]:
                 return [langfuse_handler]
 
             logger.warning("LangFuse authentication failed")
-        except Exception:
+        except Exception:  # Broad catch intentional: LangFuse init can fail in many ways (network, auth, config)
             logger.error("Cannot connect to LangFuse")
     else:
         logger.info("LangFuse not available")

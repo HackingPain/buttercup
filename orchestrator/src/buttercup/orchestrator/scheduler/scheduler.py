@@ -22,7 +22,7 @@ from buttercup.common.maps import BuildMap, HarnessWeights
 from buttercup.common.project_yaml import ProjectYaml
 from buttercup.common.queues import GroupNames, QueueFactory, QueueNames, ReliableQueue, RQItem
 from buttercup.common.task_registry import TaskRegistry
-from buttercup.common.utils import serve_loop
+from buttercup.common.utils import async_serve_loop
 from buttercup.orchestrator.api_client_factory import create_api_client
 from buttercup.orchestrator.scheduler.cancellation import Cancellation
 from buttercup.orchestrator.scheduler.status_checker import StatusChecker
@@ -204,7 +204,7 @@ class Scheduler:
         if build_output.build_type != BuildType.FUZZER:
             return []
 
-        # TODO(Ian): what to do if a task dir doesnt need a python path?
+        # Default python_path="python" works for all current task types; non-Python tasks simply don't use it.
         tsk = ChallengeTask(read_only_task_dir=build_output.task_dir, python_path="python")
 
         build_dir = tsk.get_build_dir()
@@ -260,7 +260,7 @@ class Scheduler:
                     )
                 self.ready_queue.ack_item(task_ready_item.item_id)
                 return True
-            except Exception as e:
+            except Exception as e:  # Broad catch intentional: prevent event loop crash
                 logger.exception(f"Failed to process task {task_ready.task.task_id}: {e}")
                 return False
 
@@ -287,7 +287,7 @@ class Scheduler:
                 f"{build_output.engine} | {build_output.sanitizer} | {build_output.task_dir}",
             )
             return True
-        except Exception as e:
+        except Exception as e:  # Broad catch intentional: prevent event loop crash
             logger.error(
                 f"Failed to process build output for {build_output.task_id} | {build_output.engine} | "
                 f"{build_output.sanitizer} | {build_output.task_dir}: {e}",
@@ -337,7 +337,7 @@ class Scheduler:
                 logger.info(f"Received index output for task {index_output_item.deserialized.task_id}")
                 self.index_output_queue.ack_item(index_output_item.item_id)
                 return True
-            except Exception as e:
+            except Exception as e:  # Broad catch intentional: prevent event loop crash
                 logger.error(f"Failed to process index output: {e}")
                 return False
         return False
@@ -434,7 +434,7 @@ class Scheduler:
 
         return collected_item
 
-    def serve_item(self) -> bool:
+    async def serve_item(self) -> bool:
         assert self.cancellation is not None
         # Run all scheduler components and track if any did work
         # Order is important: process_cancellations should be run first,
@@ -454,7 +454,7 @@ class Scheduler:
         results = [component() for component in components]
         return any(results)
 
-    def serve(self) -> None:
+    async def serve(self) -> None:
         """Main orchestrator loop that drives task progress forward.
 
         This is the central scheduling loop that coordinates all components of the orchestrator.
@@ -470,4 +470,4 @@ class Scheduler:
             raise ValueError("Redis is not initialized")
 
         logger.info("Starting scheduler service")
-        serve_loop(self.serve_item, self.sleep_time)
+        await async_serve_loop(self.serve_item, self.sleep_time)

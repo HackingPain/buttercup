@@ -624,15 +624,17 @@ def batch_tool(
     combined_context = {}
     for i, result in enumerate(results):
         if isinstance(result, Command):
-            # TODO: We should check for dict type here
-            if "messages" in result.update:  # type: ignore[operator]
+            if not isinstance(result.update, dict):
+                logger.warning("Unexpected non-dict Command.update type: %s", type(result.update))
+                continue
+            if "messages" in result.update:
                 result_combined = "\n".join(
                     message.content
-                    for message in result.update["messages"]  # type: ignore[index]
+                    for message in result.update["messages"]
                 )
                 combined_message += f"Batched call {i}:\n{result_combined}\n"
-            if "retrieved_context" in result.update:  # type: ignore[operator]
-                combined_context.update(result.update["retrieved_context"])  # type: ignore[index]
+            if "retrieved_context" in result.update:
+                combined_context.update(result.update["retrieved_context"])
 
     # Anthropic API expects 1 tool message per tool call ID
     return Command(

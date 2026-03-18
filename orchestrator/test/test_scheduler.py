@@ -148,7 +148,7 @@ def test_process_ready_task(scheduler):
 def test_process_build_output(mock_get_fuzz_targets, scheduler):
     mock_get_fuzz_targets.return_value = ["target1", "target2"]
 
-    # TODO(Ian): this is stupid
+    # Set up a temporary task directory structure to simulate a real task layout
     with tempfile.TemporaryDirectory() as td:
         task_dir = Path(td) / "test-task"
         src_dir = task_dir / "src"
@@ -486,7 +486,8 @@ def test_should_stop_processing_wrapper(scheduler):
     scheduler.task_registry.should_stop_processing.assert_any_call(task, scheduler.cached_cancelled_ids)
 
 
-def test_serve_item_processes_cancellations_then_updates_cache(scheduler):
+@pytest.mark.asyncio
+async def test_serve_item_processes_cancellations_then_updates_cache(scheduler):
     """Test that serve_item runs process_cancellations first, then updates the cached cancelled IDs."""
     # Setup
     scheduler.cancellation = Mock()
@@ -501,7 +502,7 @@ def test_serve_item_processes_cancellations_then_updates_cache(scheduler):
     scheduler.update_expired_task_weights = Mock(return_value=False)
 
     # Execute
-    result = scheduler.serve_item()
+    result = await scheduler.serve_item()
 
     # Verify
     assert result is True

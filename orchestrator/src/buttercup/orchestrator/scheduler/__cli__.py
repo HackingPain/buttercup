@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 from pydantic_settings import get_subcommand
@@ -53,7 +54,7 @@ def main() -> None:
             patch_submission_retry_limit=command.patch_submission_retry_limit,
             patch_requests_per_vulnerability=command.patch_requests_per_vulnerability,
         )
-        scheduler.serve()
+        asyncio.run(scheduler.serve())
     elif isinstance(command, ProcessReadyTaskCommand):
         scheduler = Scheduler(settings.tasks_storage_dir, settings.scratch_dir)  # type: ignore[unreachable]
         task = _prepare_ready_task(command)

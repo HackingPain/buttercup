@@ -200,7 +200,7 @@ class ChallengeTask:
         if not lp.exists():
             try:
                 return node_local.remote_archive_to_dir(lp)
-            except Exception as e:
+            except OSError as e:
                 raise ChallengeTaskError(f"Failed to download task directory from remote storage: {e}") from e
         return lp
 
@@ -224,11 +224,11 @@ class ChallengeTask:
         return Path(self.SRC_DIR) / self.focus
 
     def get_diff_subpath(self) -> Path | None:
-        # TODO: "Review task structure and Challenge Task operations" Issue #74
+        # Deferred: Issue #74 - may need to support multiple diff dirs or structured diff layouts
         return self._find_first_dir(self.DIFF_DIR)
 
     def get_oss_fuzz_subpath(self) -> Path | None:
-        # TODO: "Review task structure and Challenge Task operations" Issue #74
+        # Deferred: Issue #74 - may need to support alternative oss-fuzz directory structures
         return self._find_first_dir(self.OSS_FUZZ_DIR)
 
     def _task_dir_compose_path(
@@ -265,7 +265,7 @@ class ChallengeTask:
         """Check if the configured python_path is available in system PATH."""
         try:
             subprocess.run([self.python_path, "--version"], check=False, capture_output=True, text=True)
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError) as e:
             raise ChallengeTaskError(f"Python executable couldn't be run: {self.python_path}") from e
 
     def _workdir_from_lines(self, lines: list[str], default: Path = Path("/src")) -> Path:
@@ -427,7 +427,7 @@ class ChallengeTask:
                 error=e.stderr if e.stderr else None,
                 output=e.stdout if e.stdout else None,
             )
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError) as e:
             logger.exception(f"Command failed (cwd={cwd}): {' '.join(cmd)}")
             return CommandResult(success=False, returncode=None, error=str(e).encode(), output=None)
 
@@ -443,7 +443,7 @@ class ChallengeTask:
         grep_cmd = ["grep", "BASE_IMAGE_TAG =", str(self._helper_path)]
         try:
             result = self._run_helper_cmd(grep_cmd)
-        except Exception as e:
+        except (ChallengeTaskError, subprocess.SubprocessError, OSError) as e:
             logger.exception(f"[task {self.task_dir}] Error grep'ing for base-runner version: {e!s}")
             return None
         if not result.success:
@@ -459,7 +459,7 @@ class ChallengeTask:
         try:
             base_runner_str = m.group(1).strip(":v")
             return Version(base_runner_str)
-        except Exception as e:
+        except (ValueError, TypeError) as e:
             logger.exception(f"[task {self.task_dir}] Error parsing base-runner version: {e!s}")
             return None
 
@@ -485,7 +485,7 @@ class ChallengeTask:
                                 result = "aixcc-afc"
                                 logger.info(f"Using aixcc-afc container org: {result}")
                                 break
-        except Exception:
+        except OSError:
             logger.exception("Could not determine oss_fuzz_container_org from helper_path")
 
         return result
@@ -861,7 +861,7 @@ class ChallengeTask:
             logger.debug(f"[task {self.task_dir}] Error stdout: {e.stdout}")
             logger.debug(f"[task {self.task_dir}] Error stderr: {e.stderr}")
             raise ChallengeTaskError(f"[task {self.task_dir}] Error applying diff: {e!s}") from e
-        except Exception as e:
+        except (OSError, subprocess.SubprocessError) as e:
             logger.exception(f"[task {self.task_dir}] Error applying diff: {e!s}")
             raise ChallengeTaskError(f"[task {self.task_dir}] Error applying diff: {e!s}") from e
 
@@ -947,7 +947,7 @@ class ChallengeTask:
     def _remove_dir(self, path: Path) -> None:
         try:
             shutil.rmtree(path, ignore_errors=True)
-        except Exception:
+        except OSError:
             logger.warning("Error removing directory %s, trying from within the container...", path)
             res = self.exec_docker_cmd(
                 f"rm -rf /mnt/{path.name}",

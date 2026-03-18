@@ -1,10 +1,11 @@
+import asyncio
 import errno
 import logging
 import os
 import shutil
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Coroutine
 from os import PathLike
 from pathlib import Path
 from typing import Any
@@ -78,6 +79,30 @@ def serve_loop(func: Callable[[], bool], sleep_time: float = 1.0, report_time: f
             time.sleep(sleep_time)
 
 
+async def async_serve_loop(
+    func: Callable[[], Coroutine[Any, Any, bool]], sleep_time: float = 1.0, report_time: float = 60.0
+) -> None:
+    """Serve an async function in a loop."""
+    if sleep_time < 0:
+        raise ValueError("sleep_time must be greater than 0")
+
+    if report_time < 0:
+        raise ValueError("report_time must be greater than 0")
+
+    did_work = False
+    start_time = time.time()
+
+    while True:
+        signal_alive_health_check()
+        if time.time() - start_time > report_time:
+            logger.info("Sleeping, waiting for inputs")
+            start_time = time.time()
+
+        did_work = await func()
+        if not did_work:
+            await asyncio.sleep(sleep_time)
+
+
 def setup_periodic_zombie_reaper(interval_seconds: int = 5) -> None:
     """Set up a background thread that periodically reaps zombie processes."""
 
@@ -104,7 +129,7 @@ def setup_periodic_zombie_reaper(interval_seconds: int = 5) -> None:
                 if reaped_count > 0:
                     logger.info(f"Periodic reaper: cleaned up {reaped_count} zombie processes")
 
-            except Exception as e:
+            except OSError as e:
                 logger.error(f"Error in periodic zombie reaper: {e}")
 
     # Start the daemon thread and forget about it

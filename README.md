@@ -140,6 +140,7 @@ For additional log access methods, see the [Quick Reference Guide](guides/QUICK_
 
 ## Additional Resources
 
+- [Architecture Diagrams](docs/architecture.md) - System architecture, data flow, queue topology, and deployment diagrams
 - [Quick Reference Guide](guides/QUICK_REFERENCE.md) - Common commands and troubleshooting
 - [Manual Setup Guide](guides/MANUAL_SETUP.md) - Detailed manual installation steps
 - [AKS Deployment Guide](guides/AKS_DEPLOYMENT.md) - Production deployment on Azure

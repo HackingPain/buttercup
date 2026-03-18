@@ -1,0 +1,95 @@
+# Redis High Availability (Sentinel) configuration for production deployments.
+#
+# Usage:
+#   helm install buttercup . -f values.yaml -f values-redis-ha.yaml
+#   helm upgrade buttercup . -f values.yaml -f values-redis-ha.yaml
+#
+# This overlay switches Redis from standalone mode to a Sentinel-based
+# replication topology with one master, two read replicas, and three
+# Sentinel instances for automatic failover.
+
+redis:
+  architecture: replication
+
+  auth:
+    enabled: false  # Keep consistent with base values; enable and set password for hardened setups
+
+  # --- Master configuration ---
+  master:
+    persistence:
+      enabled: true
+      size: 8Gi
+      storageClass: managed-premium
+    resources:
+      limits:
+        cpu: 500m
+        memory: 1Gi
+      requests:
+        cpu: 250m
+        memory: 512Mi
+    configuration: |-
+      appendonly yes
+      appendfsync everysec
+      no-appendfsync-on-rewrite no
+      auto-aof-rewrite-percentage 100
+      auto-aof-rewrite-min-size 64mb
+
+  # --- Replica configuration ---
+  replica:
+    replicaCount: 2
+    persistence:
+      enabled: true
+      size: 8Gi
+      storageClass: managed-premium
+    resources:
+      limits:
+        cpu: 500m
+        memory: 1Gi
+      requests:
+        cpu: 250m
+        memory: 512Mi
+
+  # --- Sentinel configuration ---
+  sentinel:
+    enabled: true
+    # Three Sentinel instances for quorum (quorum = 2)
+    quorum: 2
+
+    resources:
+      limits:
+        cpu: 250m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+    # Failover timing
+    downAfterMilliseconds: 5000
+    failoverTimeout: 60000
+
+    service:
+      type: ClusterIP
+      ports:
+        sentinel: 26379
+
+    # Sentinel container probes
+    livenessProbe:
+      enabled: true
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+      successThreshold: 1
+    readinessProbe:
+      enabled: true
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+      successThreshold: 1
+
+  # Docker registry authentication (carried over from base)
+  global:
+    imagePullSecrets:
+      - ghcr-auth
+      - docker-auth

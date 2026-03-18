@@ -174,3 +174,80 @@ def test_delete_task_authorized(client: TestClient) -> None:
     response = client.delete(f"/v1/task/{task_id}/", auth=(settings.api_key_id, settings.api_token))
     assert response.status_code == 200
     assert response.text == '""'
+
+
+# ---------------------------------------------------------------------------
+# Versioned API routes (/api/v1/...)
+# ---------------------------------------------------------------------------
+
+
+def test_api_version_endpoint(client: TestClient) -> None:
+    """Test that the /api/version endpoint returns version information without auth"""
+    response = client.get("/api/version")
+    assert response.status_code == 200
+    data = response.json()
+    assert "api_version" in data
+    assert data["api_version"] == "v1"
+    assert "app_version" in data
+
+
+@patch("buttercup.orchestrator.task_server.server.create_api_client")
+def test_get_status_versioned(mock_create_api_client, client: TestClient) -> None:
+    """Test that versioned status endpoint works at /api/v1/status/"""
+    mock_api = MagicMock()
+    mock_api.v1_ping_get.return_value = TypesPingResponse(status="false")
+    mock_create_api_client.return_value = mock_api
+
+    response = client.get("/api/v1/status/", auth=(settings.api_key_id, settings.api_token))
+    assert response.status_code == 200
+    assert isinstance(response.json(), dict)
+    assert "version" in response.json()
+
+
+def test_get_status_versioned_unauthorized(client: TestClient) -> None:
+    """Test that versioned status endpoint requires authentication"""
+    response = client.get("/api/v1/status/")
+    assert response.status_code == 401
+
+
+def test_post_task_versioned(client: TestClient) -> None:
+    """Test that versioned task endpoint works at /api/v1/task/"""
+    task = Task(
+        message_id=str(uuid4()),
+        message_time=int(time.time()),
+        tasks=[
+            TaskDetail(
+                deadline=int(time.time() + 1000),
+                focus="test_focus",
+                harnesses_included=True,
+                metadata={},
+                project_name="test_project",
+                source=[
+                    SourceDetail(
+                        sha256="ea8fac7c65fb589b0d53560f5251f74f9e9b243478dcb6b3ea79b5e36449c8d9",
+                        type=SourceType.SourceTypeRepo,
+                        url="https://example.com",
+                    ),
+                ],
+                task_id=str(uuid4()),
+                type=TaskType.TaskTypeFull,
+            ),
+        ],
+    )
+    response = client.post("/api/v1/task/", json=jsonable_encoder(task), auth=(settings.api_key_id, settings.api_token))
+    assert response.status_code == 200
+    assert response.text == '"DONE"'
+
+
+def test_delete_task_versioned(client: TestClient) -> None:
+    """Test that versioned task deletion endpoint works at /api/v1/task/{task_id}/"""
+    task_id = uuid4()
+    response = client.delete(f"/api/v1/task/{task_id}/", auth=(settings.api_key_id, settings.api_token))
+    assert response.status_code == 200
+    assert response.text == '""'
+
+
+def test_delete_all_tasks_versioned(client: TestClient) -> None:
+    """Test that versioned delete-all-tasks endpoint works at /api/v1/task/"""
+    response = client.delete("/api/v1/task/", auth=(settings.api_key_id, settings.api_token))
+    assert response.status_code == 200

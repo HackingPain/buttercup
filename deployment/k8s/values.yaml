@@ -117,10 +117,16 @@ dind-daemon:
       memory: 1Gi
 
 # Service-specific configurations
+#
+# Redis: standalone mode for dev/minikube.
+# For production HA (Sentinel) configuration, use the overlay:
+#   cp values-redis-ha.template values-redis-ha.yaml
+#   helm install buttercup . -f values.yaml -f values-redis-ha.yaml
+# See values-redis-ha.template for details.
 redis:
   auth:
     enabled: false  # Disable authentication for simplicity
-  architecture: standalone  # Use single instance instead of cluster
+  architecture: standalone  # Dev/minikube only; see values-redis-ha.template for production
   master:
     persistence:
       enabled: true

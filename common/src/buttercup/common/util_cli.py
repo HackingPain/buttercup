@@ -1,11 +1,14 @@
 import logging
 from pathlib import Path
+
+import google.protobuf.message
 from typing import Annotated
 from uuid import uuid4
 
 from google.protobuf.text_format import Parse
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, CliPositionalArg, CliSubCommand, get_subcommand
+import redis as redis_module
 from redis import Redis
 
 from buttercup.common.datastructures.msg_pb2 import (
@@ -144,7 +147,7 @@ def handle_subcommand(redis: Redis, command: BaseModel | None) -> None:
         try:
             queue_name = QueueNames(command.queue_name)
             queue: ReliableQueue = QueueFactory(redis).create(queue_name)
-        except Exception as e:
+        except (ValueError, redis_module.RedisError) as e:
             logger.exception(f"Failed to create queue: {e}")
             return
 
@@ -258,7 +261,7 @@ def handle_subcommand(redis: Redis, command: BaseModel | None) -> None:
                 print(f"--- Submission {i} ---")
                 print(submission)
                 print()
-            except Exception as e:
+            except (google.protobuf.message.DecodeError, ValueError, IndexError) as e:
                 logger.error(f"Failed to parse submission {i}: {e}")
 
         print()

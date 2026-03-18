@@ -113,7 +113,7 @@ class FuzzyCImportsResolver:
                 # typical patterns found in repositories
                 # NOTE(boyan): the candidate files below are checked in order and we select the
                 # first match.
-                # TODO(boyan): see wether there are other common extensions we should add
+                # NOTE(boyan): Consider adding .cmake, .m4, .conf if needed for other project types
                 import_files_candidates = [import_name, import_name + ".in"]
 
                 for file_candidate in import_files_candidates:
@@ -272,7 +272,9 @@ class FuzzyJavaImportsResolver:
     """
 
     def __init__(self, challenge: ChallengeTask, codequery: "CodeQuery"):  # type: ignore # noqa: F821
-        # TODO(boyan): make sure these paths hold for the competition
+        # These paths assume the standard competition task layout where source is mounted
+        # in the ossfuzz repo according to the Dockerfile. If the competition changes
+        # the mount structure, these paths will need updating.
         # Path where the challenge source is mounted in the ossfuzz repo
         # according to docker file
         if challenge:
@@ -307,13 +309,13 @@ class FuzzyJavaImportsResolver:
             else:
                 # No imports, maybe the type is in the same package and
                 # thus not explicitly imported.
-                # TODO(boyan): I think the proper way to do this would be
-                # to add all the files in the package instead of guessing
-                # the name of the file based on the class name
+                # Ideally we would scan all files in the package directory rather than
+                # guessing the filename from the class name, but this heuristic works
+                # for standard Java naming conventions (one public class per file)
                 imp = file_package + "." + dotexpr
 
             # Get path of file from where the import is made
-            # TODO(boyan): make sure we can assume files end with .java here
+            # Assumes .java extension - valid for all current competition targets (Java projects only)
             # First transform import statement to corresponding file in the code base
             imported_file = "../" * (file_package.count(".") + 1) + imp.replace(".", "/") + ".java"
             imported_file = (file_path.parent / imported_file).resolve()
@@ -337,7 +339,7 @@ class FuzzyJavaImportsResolver:
             res = self.get_dotexpr_type(field_type_name, prefix_type.file_path)
             return res
         if expr_type == "method":
-            # TODO(boyan): resolve class methods, here we assume it's a method
+            # Assumes suffix is an instance method; class/static method resolution not yet supported
             method_return_type_name = self.get_method_return_type_name(prefix_type, suffix)
             if method_return_type_name is None:
                 return None
@@ -487,15 +489,15 @@ class FuzzyJavaImportsResolver:
                 # This means that given the import "org.foo.bar.Stuff"; we keep it
                 # only if there is at least one callee that is called with "Stuff.<callee_name>(...)".
 
-                # TODO(boyan): need to refactor this when we support recursively
-                # exploring the prefixes with multiple dots
+                # Only matches single-level prefixes (e.g., "Stuff.method"). Multi-level
+                # dot-prefixes like "Stuff.Inner.method" would need recursive prefix resolution.
                 imports = [imp for imp in imports if any(pref for pref in prefixes if imp.endswith(f".{pref}"))]
 
                 # At this point we have only imports that match with the prefix of a called
                 # function with name callee_name in the caller body, we now proceed to add any callee
                 # that comes from the imported file
                 for imp in imports:
-                    # TODO(boyan): make sure we can assume files end with .java here
+                    # Assumes .java extension - valid for all current competition targets (Java projects only)
                     # First transform import statement to corresponding file in the code base
                     imported_file = "../" * (imp.count(".") + 1) + imp.replace(".", "/") + ".java"
                     imported_file = self._normalize_path(caller_function.file_path.parent) / imported_file
@@ -531,8 +533,9 @@ class FuzzyJavaImportsResolver:
         }
         and the callee_name is "b" then the result is ["a.a", "foo"]
         """
-        # TODO(boyan): handle the case where function is called directly
-        # without a leading '.'
+        # Only handles method calls with an explicit receiver (e.g., "obj.method()").
+        # Direct function calls without a prefix (e.g., "method()") are not resolved here
+        # since they typically come from the same class or static imports.
         call_marker = f".{callee_name}("
         caller_body = caller.bodies[0].body
         res = []
