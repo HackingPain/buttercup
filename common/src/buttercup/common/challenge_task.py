@@ -21,6 +21,7 @@ from packaging.version import Version
 
 from buttercup.common import node_local
 from buttercup.common.constants import ARCHITECTURE
+from buttercup.common.logger import log_event
 from buttercup.common.stack_parsing import get_crash_token
 from buttercup.common.task_meta import TaskMeta
 from buttercup.common.utils import copyanything, get_diffs
@@ -420,7 +421,7 @@ class ChallengeTask:
                 output=stdout,
             )
         except subprocess.CalledProcessError as e:
-            logger.error(f"Command failed (cwd={cwd}): {' '.join(cmd)}")
+            log_event(logger, logging.ERROR, "Command failed", operation=" ".join(cmd), cwd=cwd)
             return CommandResult(
                 success=False,
                 returncode=None,
@@ -428,7 +429,7 @@ class ChallengeTask:
                 output=e.stdout if e.stdout else None,
             )
         except (subprocess.SubprocessError, OSError) as e:
-            logger.exception(f"Command failed (cwd={cwd}): {' '.join(cmd)}")
+            log_event(logger, logging.ERROR, "Command failed", operation=" ".join(cmd), cwd=cwd, error=e)
             return CommandResult(success=False, returncode=None, error=str(e).encode(), output=None)
 
     def _run_helper_cmd(self, cmd: list[str], env_helper: dict[str, str] | None = None) -> CommandResult:
@@ -853,16 +854,18 @@ class ChallengeTask:
 
             return True
         except FileNotFoundError as e:
-            logger.error(f"[task {self.task_dir}] File not found: {e!s}")
+            log_event(logger, logging.ERROR, "File not found while applying diff", task_id=self.task_dir, error=e)
             raise ChallengeTaskError(f"[task {self.task_dir}] File not found: {e!s}") from e
         except subprocess.CalledProcessError as e:
-            logger.error(f"[task {self.task_dir}] Error applying diff: {e!s}")
-            logger.debug(f"[task {self.task_dir}] Error returncode: {e.returncode}")
+            log_event(
+                logger, logging.ERROR, "Error applying diff",
+                task_id=self.task_dir, error=e, returncode=e.returncode,
+            )
             logger.debug(f"[task {self.task_dir}] Error stdout: {e.stdout}")
             logger.debug(f"[task {self.task_dir}] Error stderr: {e.stderr}")
             raise ChallengeTaskError(f"[task {self.task_dir}] Error applying diff: {e!s}") from e
         except (OSError, subprocess.SubprocessError) as e:
-            logger.exception(f"[task {self.task_dir}] Error applying diff: {e!s}")
+            log_event(logger, logging.ERROR, "Error applying diff", task_id=self.task_dir, error=e)
             raise ChallengeTaskError(f"[task {self.task_dir}] Error applying diff: {e!s}") from e
 
     @contextmanager

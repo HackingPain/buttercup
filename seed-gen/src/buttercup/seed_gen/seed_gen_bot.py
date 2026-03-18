@@ -149,7 +149,7 @@ class SeedGenBot(TaskLoop):
             logger.info("Initializing codequery")
             try:
                 codequery = CodeQueryPersistent(challenge_task, work_dir=self.wdir)
-            except Exception as e:
+            except Exception as e:  # Broad catch intentional: codequery init involves many subsystems
                 logger.exception(f"Failed to initialize codequery: {e}.")
                 return
 

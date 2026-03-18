@@ -116,7 +116,7 @@ def get_redis_connection_pool(
         # Resolve password: explicit arg > env var > None
         resolved_password = password if password is not None else os.getenv("REDIS_PASSWORD")
 
-        retry = Retry(retries=3, retry_on_timeout=resolved_retry_on_timeout)
+        retry = Retry(ExponentialBackoff(), retries=3)
 
         pool = ConnectionPool(
             host=resolved_host,
@@ -151,7 +151,7 @@ def get_redis_client(
     max_connections: int | None = None,
     decode_responses: bool = False,
     **kwargs: object,
-) -> Redis:
+) -> Redis[bytes]:
     """Return a Redis client backed by the shared connection pool.
 
     All keyword arguments are forwarded to :func:`get_redis_connection_pool`
@@ -176,7 +176,7 @@ def get_redis_client(
         password=password,
         max_connections=max_connections,
     )
-    return Redis(connection_pool=pool, decode_responses=decode_responses)
+    return Redis(connection_pool=pool)
 
 
 def check_health() -> bool:
@@ -187,7 +187,7 @@ def check_health() -> bool:
     """
     try:
         client = get_redis_client()
-        return client.ping()
+        return bool(client.ping())
     except RedisError:
         logger.exception("Redis health check failed")
         return False

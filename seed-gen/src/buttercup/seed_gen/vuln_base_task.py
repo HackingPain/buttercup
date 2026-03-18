@@ -21,7 +21,7 @@ from buttercup.common import stack_parsing
 from buttercup.common.challenge_task import ChallengeTaskError
 from buttercup.common.corpus import CrashDir
 from buttercup.common.datastructures.msg_pb2 import BuildOutput, Crash
-from buttercup.common.llm import get_langfuse_callbacks
+from buttercup.common.llm import get_langfuse_callbacks, retry_llm
 from buttercup.common.project_yaml import Language
 from buttercup.common.queues import ReliableQueue
 from buttercup.common.reproduce_multiple import ReproduceMultiple, ReproduceResult
@@ -340,7 +340,7 @@ class VulnBaseTask(Task):
                 )
                 chain.invoke(state)  # type: ignore[arg-type]
 
-        except Exception as err:
+        except Exception as err:  # Broad catch intentional: LLM-driven seed generation can fail in many ways
             logger.exception(
                 "Failed vuln-discovery for challenge %s: %s",
                 self.package_name,

@@ -33,6 +33,11 @@ class TestSettings:
     log_max_line_length: int | None = None
     redis_url: str = "redis://localhost:6379"
 
+    # Rate limiting configuration
+    rate_limit_enabled: bool = True
+    rate_limit_general: int = 60
+    rate_limit_heavy: int = 10
+
     # Competition API configuration
     competition_api_url: str = "http://localhost:31323"
     competition_api_username: str = "11111111-1111-1111-1111-111111111111"

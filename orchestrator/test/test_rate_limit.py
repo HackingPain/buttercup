@@ -8,7 +8,6 @@ from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
-from fastapi.encoders import jsonable_encoder
 from fastapi.testclient import TestClient
 
 from buttercup.orchestrator.task_server.rate_limit import RateLimitStore, _TokenBucket
@@ -171,9 +170,7 @@ class TestRateLimitMiddlewareIntegration:
         assert resp.status_code == 429
 
     @patch("buttercup.orchestrator.task_server.server.create_api_client")
-    def test_heavy_limit_does_not_affect_general(
-        self, mock_create_api_client: MagicMock, client: TestClient
-    ) -> None:
+    def test_heavy_limit_does_not_affect_general(self, mock_create_api_client: MagicMock, client: TestClient) -> None:
         """Exhausting the heavy budget does not affect general endpoints."""
         rate_limit_store.heavy_limit = 1
         rate_limit_store.reset()

@@ -92,5 +92,5 @@ class SeedInitTask(SeedBaseTask):
         try:
             logger.info("Generating seeds for challenge %s", self.package_name)
             self.generate_seeds(harness, output_dir)
-        except Exception as err:
+        except Exception as err:  # Broad catch intentional: LLM-driven seed generation can fail in many ways
             logger.exception("Failed seed-init for challenge %s: %s", self.package_name, str(err))
